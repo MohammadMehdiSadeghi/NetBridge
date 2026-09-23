@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #0b0f14;
+  color: #e8eef7;
+  font-family: 'Segoe UI', Vazirmatn, Tahoma, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-stroke bg-bg1;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-bold text-[#041018] transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-stroke bg-bg2 px-4 py-2.5 text-sm font-semibold text-ink transition hover:border-brand/50 hover:text-brand active:scale-[0.98] disabled:opacity-40;
+  }
+  .input {
+    @apply w-full rounded-xl border border-stroke bg-bg2 px-4 py-3 text-sm text-ink outline-none transition placeholder:text-muted focus:border-brand;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-semibold text-muted;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #1f2b3d;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
