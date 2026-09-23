@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NetBridge</string>
+    <string name="notification_title">NetBridge is active</string>
+    <string name="notification_channel">Sharing</string>
+
+    <!-- Navigation -->
+    <string name="tab_home">Home</string>
+    <string name="tab_share">Sharing</string>
+    <string name="tab_settings">Settings</string>
+
+    <!-- Common -->
+    <string name="on">On</string>
+    <string name="off">Off</string>
+    <string name="active">Active</string>
+    <string name="inactive">Inactive</string>
+    <string name="copy">Copy</string>
+    <string name="copied">Copied</string>
+    <string name="save">Save</string>
+    <string name="saved">Saved ✓</string>
+    <string name="saved_toast">Saved</string>
+
+    <!-- Transport -->
+    <string name="transport_usb">USB</string>
+    <string name="transport_hotspot">Hotspot</string>
+    <string name="transport_none">No link</string>
+
+    <!-- Home -->
+    <string name="home_title">NetBridge</string>
+    <string name="home_tagline">Share phone internet with VPN</string>
+    <string name="sharing_active">Sharing is on</string>
+    <string name="tap_to_start">Tap to start</string>
+    <string name="status_phone_vpn">Phone VPN</string>
+    <string name="status_clients">Clients</string>
+    <string name="status_phone_internet">Phone internet</string>
+    <string name="status_ok">OK</string>
+    <string name="status_down">Down</string>
+    <string name="status_system_link">System link</string>
+    <string name="status_upload">Upload (PC→Internet)</string>
+    <string name="status_download">Download (Internet→PC)</string>
+    <string name="phone_addresses">This phone\'s addresses</string>
+    <string name="phone_addresses_hint">Turn on hotspot or USB so addresses can show.</string>
+    <string name="ports_line">Proxy port: %1$d · Control port: %2$d</string>
+    <string name="needs_attention">Needs attention</string>
+
+    <!-- Share -->
+    <string name="share_title">Sharing</string>
+    <string name="share_subtitle">Enter this info in the desktop app</string>
+    <string name="pairing_code">Pairing code</string>
+    <string name="copy_code">Copy code</string>
+    <string name="new_code">New code</string>
+    <string name="share_status">Share status</string>
+    <string name="connected_clients">Connected clients</string>
+    <string name="http_proxy">HTTP proxy</string>
+    <string name="control_api">Control API</string>
+    <string name="connectable_addresses">Connectable addresses</string>
+    <string name="hotspot_usb_hint">Turn on hotspot or USB tethering.</string>
+    <string name="no_clients_yet">No system has connected yet. If the PC is connected but this is empty, it cannot find this phone — check the hotspot tab for the phone address.</string>
+    <string name="connections_count">%d connections</string>
+    <string name="connect_steps">PC connection steps</string>
+    <string name="step_1">1. Turn on your VPN app on the phone (All-apps mode).</string>
+    <string name="step_2">2. Turn on the hotspot, or plug USB and enable USB tethering.</string>
+    <string name="step_3">3. Keep this app running (sharing on).</string>
+    <string name="step_4">4. Connect the PC to the hotspot — or for USB, Windows detects the cable network.</string>
+    <string name="step_5">5. Open the desktop app and enter this code.</string>
+    <string name="step_6">6. Press Connect on the desktop — done.</string>
+    <string name="stop_sharing">Stop sharing</string>
+    <string name="start_sharing">Start sharing</string>
+    <string name="vpn_all_apps_notice">To apply the VPN to shared traffic, keep the VPN app in “All apps” mode.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_subtitle">Ports and app behavior</string>
+    <string name="http_proxy_port">HTTP proxy port</string>
+    <string name="socks5_port">SOCKS5 port</string>
+    <string name="control_api_port">Control API port</string>
+    <string name="auto_start_title">Auto-start after reboot</string>
+    <string name="auto_start_desc">Enable sharing automatically when the phone starts.</string>
+    <string name="invalid_ports">Ports are invalid</string>
+    <string name="save_ports">Save ports</string>
+    <string name="about">About</string>
+    <string name="about_desc">Share phone internet with the PC while applying the phone\'s VPN. No root, no server.</string>
+
+    <!-- Notifications / service -->
+    <string name="notif_vpn_on">VPN on</string>
+    <string name="notif_vpn_off">No VPN</string>
+    <string name="notif_proxy">Proxy: %1$d</string>
+    <string name="notif_clients">Clients: %1$d</string>
+    <string name="action_stop">Stop</string>
+
+    <!-- Warnings -->
+    <string name="warn_no_internet">Phone internet is unreachable — turn the VPN off or check mobile data.</string>
+    <string name="warn_no_vpn">VPN is not active on the phone; sharing works but traffic does not go through the tunnel.</string>
+    <string name="warn_no_transport">Hotspot or USB tethering is off; the PC has no way to connect.</string>
+    <string name="error_proxy">Failed to start proxy</string>
+</resources>
