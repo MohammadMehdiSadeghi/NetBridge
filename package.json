@@ -1,0 +1,19 @@
+{
+  "name": "netbridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NetBridge - Mobile VPN sharing suite (Android + Windows)",
+  "scripts": {
+    "test": "node tools/test.mjs",
+    "test:smoke": "node tools/smoke-test.mjs",
+    "test:contract": "node tools/contract-test.mjs",
+    "desktop:install": "npm install --prefix desktop",
+    "desktop:dev": "npm run dev --prefix desktop",
+    "desktop:build": "npm run build --prefix desktop",
+    "desktop:dist": "npm run dist --prefix desktop",
+    "desktop:typecheck": "npm run typecheck --prefix desktop"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
