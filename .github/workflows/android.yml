@@ -31,7 +31,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -59,7 +61,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build release APK
-        run: ./gradlew assembleRelease --stacktrace
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --stacktrace
 
       - name: Upload release APK
         uses: actions/upload-artifact@v4
