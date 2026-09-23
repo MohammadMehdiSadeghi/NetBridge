@@ -83,7 +83,7 @@ object Interfaces {
     /**
      * True when Android itself created a tethering interface. USB is detected purely
      * by interface presence (rndis/ncm), which works across OEM ROMs. Wi-Fi hotspot is
-     * reported by ConnectivityManager, because only some ROMs expose an ap*/swlan* iface.
+     * reported by ConnectivityManager, because only some ROMs expose an ap or swlan iface.
      */
     fun isTetherUp(context: Context): Boolean {
         val present = names()
@@ -156,7 +156,7 @@ object Interfaces {
      */
     fun enumerate(context: Context): NetworkReport {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-            ?: return NetworkReport(false, emptyList(), emptyList(), null)
+            ?: return NetworkReport(false, emptyList(), emptyList(), false)
 
         var vpn: Network? = null
         var vpnCaps: NetworkCapabilities? = null
@@ -239,7 +239,7 @@ object Interfaces {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         return try {
             report.wanNetworks.any { n ->
-                cm.getNetworkCapabilities(n)?.hasCapability(
+                cm?.getNetworkCapabilities(n)?.hasCapability(
                     NetworkCapabilities.NET_CAPABILITY_VALIDATED
                 ) == true
             }
