@@ -56,6 +56,7 @@ import com.netbridge.share.share.ShareManager
 import com.netbridge.share.ui.transportLabel
 import com.netbridge.share.ui.warningText
 import com.netbridge.share.ui.theme.Accent
+import com.netbridge.share.ui.theme.Bg0
 import com.netbridge.share.ui.theme.Bg1
 import com.netbridge.share.ui.theme.Bg2
 import com.netbridge.share.ui.theme.Brand
