@@ -1,0 +1,45 @@
+# Node / Desktop
+node_modules/
+dist/
+dist-electron/
+out/
+release/
+*.log
+npm-debug.log*
+desktop/_electron.zip
+desktop/.cache/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Config / secrets
+*.local.json
+config.local.*
+
+# Android / Gradle
+.gradle/
+local.properties
+build/
+app/build/
+captures/
+*.apk
+*.aab
+*.keystore
+!debug.keystore
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.pem
+*.key
+*.crt
+
+# local scratch
+desktop/.smoke/
+tools/_*.log
+.workbuddy-ai/
