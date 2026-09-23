@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -35,7 +36,6 @@ import com.netbridge.share.ui.screens.ShareScreen
 import com.netbridge.share.ui.theme.Bg1
 import com.netbridge.share.ui.theme.Bg2
 import com.netbridge.share.ui.theme.Brand
-import com.netbridge.share.ui.theme.Stroke
 import com.netbridge.share.ui.theme.TextSecondary
 
 private data class Tab(
@@ -62,7 +62,7 @@ fun AppNav() {
         bottomBar = {
             NavigationBar(
                 containerColor = Bg1,
-                tonalElevation = androidx.compose.ui.unit.dp(0)
+                tonalElevation = 0.dp
             ) {
                 tabs.forEach { tab ->
                     val label = stringResource(tab.labelRes)
@@ -96,8 +96,7 @@ fun AppNav() {
                             selectedTextColor = Brand,
                             unselectedIconColor = TextSecondary,
                             unselectedTextColor = TextSecondary,
-                            indicatorColor = Bg2,
-                            dividerColor = Stroke
+                            indicatorColor = Bg2
                         )
                     )
                 }
