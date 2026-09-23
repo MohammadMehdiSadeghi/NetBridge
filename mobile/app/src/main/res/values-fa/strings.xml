@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NetBridge</string>
+    <string name="notification_title">NetBridge فعال است</string>
+    <string name="notification_channel">اشتراک‌گذاری</string>
+
+    <!-- Navigation -->
+    <string name="tab_home">خانه</string>
+    <string name="tab_share">اشتراک‌گذاری</string>
+    <string name="tab_settings">تنظیمات</string>
+
+    <!-- Common -->
+    <string name="on">روشن</string>
+    <string name="off">خاموش</string>
+    <string name="active">فعال</string>
+    <string name="inactive">غیرفعال</string>
+    <string name="copy">کپی</string>
+    <string name="copied">کپی شد</string>
+    <string name="save">ذخیره</string>
+    <string name="saved">ذخیره شد ✓</string>
+    <string name="saved_toast">ذخیره شد</string>
+
+    <!-- Transport -->
+    <string name="transport_usb">USB</string>
+    <string name="transport_hotspot">هات‌اسپات</string>
+    <string name="transport_none">بدون اتصال</string>
+
+    <!-- Home -->
+    <string name="home_title">NetBridge</string>
+    <string name="home_tagline">اشتراک اینترنت گوشی با VPN</string>
+    <string name="sharing_active">اشتراک فعال است</string>
+    <string name="tap_to_start">برای شروع لمس کنید</string>
+    <string name="status_phone_vpn">VPN گوشی</string>
+    <string name="status_clients">کلاینت‌ها</string>
+    <string name="status_phone_internet">اینترنت گوشی</string>
+    <string name="status_ok">سالم</string>
+    <string name="status_down">قطع</string>
+    <string name="status_system_link">راه اتصال سیستم</string>
+    <string name="status_upload">ارسال (PC→اینترنت)</string>
+    <string name="status_download">دریافت (اینترنت→PC)</string>
+    <string name="phone_addresses">آدرس‌های این گوشی</string>
+    <string name="phone_addresses_hint">هات‌اسپات یا USB را روشن کنید تا آدرس‌ها نمایش داده شوند.</string>
+    <string name="ports_line">پورت پروکسی: %1$d · پورت کنترل: %2$d</string>
+    <string name="needs_attention">نیاز به بررسی</string>
+
+    <!-- Share -->
+    <string name="share_title">اشتراک‌گذاری</string>
+    <string name="share_subtitle">این اطلاعات را در اپ دسک‌تاپ وارد کنید</string>
+    <string name="pairing_code">کد جفت‌سازی</string>
+    <string name="copy_code">کپی کد</string>
+    <string name="new_code">کد جدید</string>
+    <string name="share_status">وضعیت اشتراک</string>
+    <string name="connected_clients">کلاینت‌های متصل</string>
+    <string name="http_proxy">پروکسی HTTP</string>
+    <string name="control_api">API کنترل</string>
+    <string name="connectable_addresses">آدرس‌های قابل اتصال</string>
+    <string name="hotspot_usb_hint">هات‌اسپات یا USB tethering را روشن کنید.</string>
+    <string name="no_clients_yet">هنوز هیچ سیستمی وصل نشده. اگر سیستم وصل است ولی اینجا خالی است، یعنی سیستم آدرس گوشی را پیدا نکرده — از برگه هات‌اسپات آدرس گوشی را ببینید.</string>
+    <string name="connections_count">%d اتصال</string>
+    <string name="connect_steps">مراحل اتصال سیستم</string>
+    <string name="step_1">۱. VPN دلخواه خود را روی گوشی روشن کنید (حالت همه برنامه‌ها).</string>
+    <string name="step_2">۲. هات‌اسپات را روشن کنید، یا کابل USB را وصل و «اشتراک اینترنت USB» را فعال کنید.</string>
+    <string name="step_3">۳. این اپ را روشن بگذارید (اشتراک فعال).</string>
+    <string name="step_4">۴. PC را به هات‌اسپات وصل کنید — یا اگر USB است، ویندوز خودش شبکه کابل را می‌شناسد.</string>
+    <string name="step_5">۵. اپ دسک‌تاپ را باز کنید و این کد را وارد کنید.</string>
+    <string name="step_6">۶. دکمه اتصال دسک‌تاپ را بزنید — تمام.</string>
+    <string name="stop_sharing">توقف اشتراک</string>
+    <string name="start_sharing">شروع اشتراک</string>
+    <string name="vpn_all_apps_notice">برای اعمال VPN روی نت شیرشده، حتماً اپ VPN را در حالت «همه برنامه‌ها» قرار دهید.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">تنظیمات</string>
+    <string name="settings_subtitle">پورت‌ها و رفتار اپ</string>
+    <string name="http_proxy_port">پورت پروکسی HTTP</string>
+    <string name="socks5_port">پورت SOCKS5</string>
+    <string name="control_api_port">پورت API کنترل</string>
+    <string name="auto_start_title">شروع خودکار بعد از ری‌استارت</string>
+    <string name="auto_start_desc">با بالا آمدن گوشی، اشتراک به‌صورت خودکار فعال شود.</string>
+    <string name="invalid_ports">پورت‌ها نامعتبر هستند</string>
+    <string name="save_ports">ذخیره پورت‌ها</string>
+    <string name="about">درباره</string>
+    <string name="about_desc">اشتراک اینترنت گوشی به سیستم با اعمال VPN گوشی. بدون Root و بدون سرور.</string>
+
+    <!-- Notifications / service -->
+    <string name="notif_vpn_on">VPN فعال</string>
+    <string name="notif_vpn_off">بدون VPN</string>
+    <string name="notif_proxy">پروکسی: %1$d</string>
+    <string name="notif_clients">کلاینت‌ها: %1$d</string>
+    <string name="action_stop">توقف</string>
+
+    <!-- Warnings -->
+    <string name="warn_no_internet">اینترنت گوشی در دسترس نیست — VPN را قطع کنید یا اتصال داده را بررسی کنید.</string>
+    <string name="warn_no_vpn">VPN روی گوشی فعال نیست؛ اشتراک کار می‌کند ولی از تونل عبور نمی‌کند.</string>
+    <string name="warn_no_transport">هات‌اسپات یا USB tethering روشن نیست؛ سیستم راهی برای اتصال ندارد.</string>
+    <string name="error_proxy">خطا در اجرای پروکسی</string>
+</resources>
