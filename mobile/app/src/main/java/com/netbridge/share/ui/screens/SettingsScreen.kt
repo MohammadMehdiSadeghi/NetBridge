@@ -1,11 +1,14 @@
 package com.netbridge.share.ui.screens
 
+import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -60,6 +63,7 @@ fun SettingsScreen() {
     var socksPort by remember { mutableStateOf(state.socksPort.toString()) }
     var controlPort by remember { mutableStateOf(state.controlPort.toString()) }
     var autoShare by remember { mutableStateOf(store.autoShare) }
+    var appLang by remember { mutableStateOf(store.appLang) }
 
     Column(
         modifier = Modifier
@@ -129,6 +133,34 @@ fun SettingsScreen() {
             }
         }
 
+        Spacer(Modifier.height(14.dp))
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = Bg1,
+            border = BorderStroke(1.dp, Stroke)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.lang_title),
+                    color = TextPrimary,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                LangChip(appLang == "fa", stringResource(R.string.lang_persian)) {
+                    setLang(store, context, "fa")
+                }
+                Spacer(Modifier.width(8.dp))
+                LangChip(appLang == "en", stringResource(R.string.lang_english)) {
+                    setLang(store, context, "en")
+                }
+            }
+        }
+
         Spacer(Modifier.height(20.dp))
 
         Button(
@@ -191,6 +223,38 @@ fun SettingsScreen() {
         }
 
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+private fun setLang(store: SettingsStore, context: Context, lang: String) {
+    if (store.appLang == lang) return
+    store.appLang = lang
+    var current: Context? = context
+    while (current is android.content.ContextWrapper) {
+        if (current is Activity) {
+            current.recreate()
+            return
+        }
+        current = current.baseContext
+    }
+}
+
+@Composable
+private fun LangChip(selected: Boolean, label: String, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (selected) Brand else Bg1,
+            contentColor = if (selected) Color(0xFF041018) else TextSecondary
+        )
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) Color(0xFF041018) else TextSecondary
+        )
     }
 }
 

@@ -120,4 +120,9 @@
     <string name="warn_no_vpn">VPN is not active on the phone; sharing works but traffic does not go through the tunnel.</string>
     <string name="warn_no_transport">Hotspot or USB tethering is off; the PC has no way to connect.</string>
     <string name="error_proxy">Failed to start proxy</string>
+
+    <!-- Language -->
+    <string name="lang_title">Language</string>
+    <string name="lang_persian">فارسی</string>
+    <string name="lang_english">English</string>
 </resources>

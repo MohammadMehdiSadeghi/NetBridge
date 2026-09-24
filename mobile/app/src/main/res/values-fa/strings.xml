@@ -120,4 +120,9 @@
     <string name="warn_no_vpn">VPN روی گوشی فعال نیست؛ اشتراک کار می‌کند ولی از تونل عبور نمی‌کند.</string>
     <string name="warn_no_transport">هات‌اسپات یا USB tethering روشن نیست؛ سیستم راهی برای اتصال ندارد.</string>
     <string name="error_proxy">خطا در اجرای پروکسی</string>
+
+    <!-- Language -->
+    <string name="lang_title">زبان</string>
+    <string name="lang_persian">فارسی</string>
+    <string name="lang_english">English</string>
 </resources>

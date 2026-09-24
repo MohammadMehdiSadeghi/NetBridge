@@ -35,6 +35,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getString(KEY_DNS, "auto") ?: "auto"
         set(value) = prefs.edit().putString(KEY_DNS, value).apply()
 
+    /** "fa" | "en" — the in-app language, independent of the system locale. */
+    var appLang: String
+        get() = prefs.getString(KEY_LANG, "fa") ?: "fa"
+        set(value) = prefs.edit().putString(KEY_LANG, value).apply()
+
     private companion object {
         const val KEY_HTTP_PORT = "httpPort"
         const val KEY_SOCKS_PORT = "socksPort"
@@ -43,5 +48,6 @@ class SettingsStore(context: Context) {
         const val KEY_CODE = "pairingCode"
         const val KEY_AUTO_SHARE = "autoShare"
         const val KEY_DNS = "preferredDns"
+        const val KEY_LANG = "appLang"
     }
 }
