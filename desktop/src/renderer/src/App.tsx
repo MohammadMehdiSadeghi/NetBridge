@@ -5,6 +5,8 @@ import {
   ArrowUp,
   Cable,
   Check,
+  CircleX,
+  Info,
   Link2,
   MonitorSmartphone,
   Power,
@@ -29,7 +31,7 @@ import {
   type Lang
 } from './i18n'
 
-type Tab = 'home' | 'device' | 'settings'
+type Tab = 'home' | 'device' | 'guide' | 'settings'
 
 export default function App(): JSX.Element {
   const netbridge = useNetBridge()
@@ -73,6 +75,12 @@ export default function App(): JSX.Element {
             label={strings.tabDevice}
           />
           <TabButton
+            active={tab === 'guide'}
+            onClick={() => setTab('guide')}
+            icon={<Info size={18} />}
+            label={strings.tabGuide}
+          />
+          <TabButton
             active={tab === 'settings'}
             onClick={() => setTab('settings')}
             icon={<Settings2 size={18} />}
@@ -110,6 +118,7 @@ export default function App(): JSX.Element {
 
         {tab === 'home' && <HomeView key={getLang()} netbridge={netbridge} />}
         {tab === 'device' && <DeviceView key={getLang()} netbridge={netbridge} />}
+        {tab === 'guide' && <GuideView key={getLang()} />}
         {tab === 'settings' && <SettingsView key={getLang()} netbridge={netbridge} />}
       </main>
     </div>
@@ -249,6 +258,8 @@ function HomeView({ netbridge }: { netbridge: NetBridgeHook }): JSX.Element {
         </div>
       )}
 
+      <Checklist state={state} />
+
       <div className="mt-6 grid w-full max-w-3xl grid-cols-1 gap-4 sm:grid-cols-4">
         <Stat
           icon={<ArrowUp size={16} className="text-accent" />}
@@ -327,6 +338,121 @@ function HomeView({ netbridge }: { netbridge: NetBridgeHook }): JSX.Element {
           <Chip>{strings.internet}</Chip>
         </div>
       </div>
+    </div>
+  )
+}
+
+function Checklist({ state }: { state: NetBridgeHook['state'] }): JSX.Element {
+  const strings = t()
+  const steps: Array<{ label: string; ok: boolean; fail: string }> = [
+    { label: strings.stepPhone, ok: !!state.phoneHost, fail: strings.stepPhoneFail },
+    { label: strings.stepPaired, ok: state.paired, fail: strings.stepPairedFail },
+    { label: strings.stepVpn, ok: state.vpnActive, fail: strings.stepVpnFail },
+    { label: strings.stepLink, ok: state.transport !== 'NONE', fail: strings.stepLinkFail },
+    { label: strings.stepShare, ok: state.phoneSharing, fail: strings.stepShareFail },
+    {
+      label: strings.stepConnected,
+      ok: state.connected && state.systemProxyOn,
+      fail: strings.stepConnectedFail
+    }
+  ]
+
+  return (
+    <div className="card mt-6 w-full max-w-3xl p-5">
+      <div className="text-sm font-bold text-ink">{strings.checklistTitle}</div>
+      <p className="mb-3 text-xs text-muted">{strings.checklistSubtitle}</p>
+      <div className="flex flex-col gap-2">
+        {steps.map((step) => (
+          <div
+            key={step.label}
+            className={`flex items-start gap-3 rounded-xl border px-4 py-2.5 text-sm ${
+              step.ok
+                ? 'border-ok/30 bg-ok/10 text-ok'
+                : 'border-danger/40 bg-danger/10 text-danger'
+            }`}
+          >
+            {step.ok ? (
+              <Check size={16} className="mt-0.5 shrink-0" />
+            ) : (
+              <CircleX size={16} className="mt-0.5 shrink-0" />
+            )}
+            <span className="leading-6">{step.ok ? step.label : step.fail}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function GuideView(): JSX.Element {
+  const strings = t()
+  return (
+    <div className="px-8 py-10">
+      <h1 className="text-2xl font-extrabold text-ink">{strings.guideTitle}</h1>
+      <p className="mt-1 text-sm text-muted">{strings.guideSubtitle}</p>
+
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <GuideCard
+          icon={<Cable size={20} />}
+          title={strings.guideUsb}
+          steps={[
+            strings.guideUsb1,
+            strings.guideUsb2,
+            strings.guideUsb3,
+            strings.guideUsb4,
+            strings.guideUsb5,
+            strings.guideUsb6
+          ]}
+          note={strings.guideNote}
+        />
+        <GuideCard
+          icon={<Wifi size={20} />}
+          title={strings.guideHotspot}
+          steps={[
+            strings.guideHotspot1,
+            strings.guideHotspot2,
+            strings.guideHotspot3,
+            strings.guideHotspot4,
+            strings.guideHotspot5,
+            strings.guideHotspot6
+          ]}
+        />
+      </div>
+    </div>
+  )
+}
+
+function GuideCard({
+  icon,
+  title,
+  steps,
+  note
+}: {
+  icon: JSX.Element
+  title: string
+  steps: string[]
+  note?: string
+}): JSX.Element {
+  return (
+    <div className="card p-5">
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/15 text-brand">
+          {icon}
+        </div>
+        <span className="text-sm font-bold text-ink">{title}</span>
+      </div>
+      <ol className="flex flex-col gap-2 text-sm leading-6 text-muted">
+        {steps.map((s) => (
+          <li key={s} className="rounded-lg border border-stroke bg-bg2 px-3 py-2">
+            {s}
+          </li>
+        ))}
+      </ol>
+      {note && (
+        <p className="mt-4 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-xs text-warn">
+          {note}
+        </p>
+      )}
     </div>
   )
 }
@@ -443,6 +569,8 @@ function DeviceView({ netbridge }: { netbridge: NetBridgeHook }): JSX.Element {
           </div>
         )}
       </div>
+
+      <Checklist state={state} />
     </div>
   )
 }
@@ -514,6 +642,26 @@ function SettingsView({ netbridge }: { netbridge: NetBridgeHook }): JSX.Element 
         • {strings.tipFirewall}
         <br />
         • {strings.versionLine}
+      </div>
+
+      <div className="card mt-4 flex flex-col items-start gap-3 p-5">
+        <div className="text-sm font-bold text-ink">{strings.builtBy}</div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            className="btn-ghost"
+            onClick={() => void window.netbridge.openExternal(strings.githubUrl)}
+          >
+            <Link2 size={16} />
+            {strings.linkGithub}
+          </button>
+          <button
+            className="btn-ghost"
+            onClick={() => void window.netbridge.openExternal(strings.linkedinUrl)}
+          >
+            <Link2 size={16} />
+            {strings.linkLinkedin}
+          </button>
+        </div>
       </div>
     </div>
   )
