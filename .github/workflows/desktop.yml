@@ -45,13 +45,16 @@ jobs:
 
       - name: Smoke + contract tests
         working-directory: .
-        shell: bash
+        shell: pwsh
         run: |
-          ./desktop/node_modules/.bin/tsc desktop/src/main/proxyChain.ts \
-            --outDir desktop/.smoke --module commonjs --target es2022 \
+          node desktop/node_modules/typescript/bin/tsc desktop/src/main/proxyChain.ts `
+            --outDir desktop/.smoke --module commonjs --target es2022 `
             --esModuleInterop --skipLibCheck
+          if (-not (Test-Path desktop/.smoke/proxyChain.js)) { throw 'proxyChain.js missing' }
           node tools/smoke-test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tools/contract-test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Package NSIS installer
         run: npm run dist
