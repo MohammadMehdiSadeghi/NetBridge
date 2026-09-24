@@ -1,3 +1,4 @@
+import os from 'os'
 import { BrowserWindow, ipcMain, shell } from 'electron'
 import type { Store } from './store'
 import type { ProxyChain } from './proxyChain'
@@ -133,15 +134,57 @@ export class AppController {
           reachable: await probeControl(p.address, p.port || CONTROL_PORT)
         }))
       )
-      probed.sort((a, b) => Number(b.reachable) - Number(a.reachable))
 
-      // Common tether addresses when mDNS missed or everything is unreachable.
-      for (const fallback of ['192.168.43.1', '192.168.42.129']) {
-        if (probed.some((p) => p.address === fallback)) continue
-        if (await probeControl(fallback)) {
-          probed.push({ address: fallback, name: 'tether', port: CONTROL_PORT, reachable: true })
+      // Collect candidate fallback IPs from PC network adapters and common tether ranges
+      const fallbacks = new Set<string>([
+        '192.168.43.1',   // Android Wi-Fi hotspot (default)
+        '192.168.42.129', // Android USB tethering (default)
+        '192.168.42.1',   // Android USB tethering (alternate)
+        '172.20.10.1',    // Mobile hotspot (iOS / Android alt)
+        '192.168.8.1',    // Huawei / ZTE tether
+        '192.168.137.1',  // Windows hosted / shared network
+        '192.168.44.1',
+        '192.168.49.1',
+        '192.168.50.1',
+        '192.168.225.1'
+      ])
+
+      try {
+        const ifaces = os.networkInterfaces()
+        for (const list of Object.values(ifaces)) {
+          if (!list) continue
+          for (const iface of list) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+              const parts = iface.address.split('.')
+              if (parts.length === 4) {
+                const prefix = `${parts[0]}.${parts[1]}.${parts[2]}`
+                fallbacks.add(`${prefix}.1`)
+                fallbacks.add(`${prefix}.129`)
+              }
+            }
+          }
         }
+      } catch {
+        /* ignore network interface lookup error */
       }
+
+      // Probe candidate fallbacks in parallel
+      const candidatesToProbe = [...fallbacks].filter(
+        (addr) => !probed.some((p) => p.address === addr)
+      )
+
+      const fallbackResults = await Promise.all(
+        candidatesToProbe.map(async (addr) => {
+          const ok = await probeControl(addr, CONTROL_PORT, 1200)
+          return ok ? { address: addr, name: 'tether / lan', port: CONTROL_PORT, reachable: true } : null
+        })
+      )
+
+      for (const item of fallbackResults) {
+        if (item) probed.push(item)
+      }
+
+      probed.sort((a, b) => Number(b.reachable) - Number(a.reachable))
 
       const phones = probed
       this.patch({ scanning: false, candidates: phones })

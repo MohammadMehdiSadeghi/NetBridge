@@ -128,16 +128,18 @@ export function discoverPhones(
 ): Promise<DiscoveredPhone[]> {
   return new Promise((resolve) => {
     const found = new Map<string, DiscoveredPhone>()
-    const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true })
+    let socket: dgram.Socket | null = null
     let done = false
 
     const finish = (): void => {
       if (done) return
       done = true
-      try {
-        socket.close()
-      } catch {
-        /* already closed */
+      if (socket) {
+        try {
+          socket.close()
+        } catch {
+          /* already closed */
+        }
       }
       const list = [...found.values()]
       onUpdate?.(list)
@@ -146,33 +148,58 @@ export function discoverPhones(
 
     const timer = setTimeout(finish, timeoutMs)
 
-    socket.on('error', () => {
-      clearTimeout(timer)
-      finish()
-    })
-
-    socket.on('message', (msg, rinfo) => {
+    const onMessage = (msg: Buffer, rinfo: dgram.RemoteInfo): void => {
       if (rinfo.address.startsWith('127.')) return
       const phone = DiscoveredOnce.parse(msg, rinfo.address)
       if (phone) {
         found.set(phone.address, phone)
         onUpdate?.([...found.values()])
       }
-    })
-
-    try {
-      socket.bind(MDNS_PORT, () => {
-        try {
-          socket.setMulticastTTL(255)
-          socket.setMulticastLoopback(true)
-        } catch {
-          /* platform quirks */
-        }
-        socket.send(buildQuery(), MDNS_PORT, MDNS_ADDR)
-      })
-    } catch {
-      clearTimeout(timer)
-      finish()
     }
+
+    const startSocket = (port: number): void => {
+      try {
+        socket = dgram.createSocket({ type: 'udp4', reuseAddr: true })
+        socket.on('error', (err) => {
+          if (port === MDNS_PORT) {
+            // Port 5353 might be busy on Windows (svchost / Apple Bonjour). Fallback to ephemeral.
+            try {
+              socket?.close()
+            } catch {
+              /* ignore */
+            }
+            startSocket(0)
+          } else {
+            clearTimeout(timer)
+            finish()
+          }
+        })
+        socket.on('message', onMessage)
+        socket.bind(port, () => {
+          if (!socket) return
+          try {
+            socket.setMulticastTTL(255)
+            socket.setMulticastLoopback(true)
+            socket.addMembership(MDNS_ADDR)
+          } catch {
+            /* platform quirks / already member */
+          }
+          try {
+            socket.send(buildQuery(), MDNS_PORT, MDNS_ADDR)
+          } catch {
+            /* ignore send failure */
+          }
+        })
+      } catch {
+        if (port === MDNS_PORT) {
+          startSocket(0)
+        } else {
+          clearTimeout(timer)
+          finish()
+        }
+      }
+    }
+
+    startSocket(MDNS_PORT)
   })
 }
