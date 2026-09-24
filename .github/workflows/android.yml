@@ -38,10 +38,6 @@ jobs:
           chmod +x ./gradlew
           ./gradlew assembleDebug --stacktrace
 
-      - name: Name APK
-        if: github.event_name != 'pull_request'
-        run: cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/NetBridge.apk"
-
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -49,11 +45,17 @@ jobs:
           path: mobile/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
-      - name: Publish to Release
-        if: github.event_name != 'pull_request'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: latest
-          name: NetBridge Latest
-          files: NetBridge.apk
-          fail_on_unmatched_files: true
+      - name: Replace APK on repo root
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/NetBridge.apk"
+          cd "$GITHUB_WORKSPACE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f NetBridge.apk
+          if git diff --cached --quiet; then
+            echo "APK unchanged"
+          else
+            git commit -m "جایگزینی APK جدید"
+            git push
+          fi
