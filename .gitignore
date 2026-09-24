@@ -26,6 +26,7 @@ build/
 app/build/
 captures/
 *.apk
+!/NetBridge.apk
 *.aab
 *.keystore
 !debug.keystore
