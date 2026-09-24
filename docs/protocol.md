@@ -1,35 +1,35 @@
-# پروتکل NetBridge — LAN
+# NetBridge protocol — LAN
 
-ارتباط بین اپ دسک‌تاپ و اپ اندروید روی شبکه محلی (هات‌اسپات یا USB tethering).
+Communication between the desktop app and the Android app on the local network (hotspot or USB tethering).
 
-## ۱. پروکسی اشتراکی گوشی
+## 1. Shared phone proxy
 
-| سرویس | پورت پیش‌فرض | آدرس |
-|-------|--------------|------|
+| Service | Default port | Address |
+|---------|--------------|---------|
 | HTTP Proxy | `8080` | `0.0.0.0` |
 | SOCKS5 | `1080` | `0.0.0.0` |
 
-- بدون احراز هویت (محافظت از طریق رمز هات‌اسپات WPA2)
-- خروجی هر اتصال پروکسی، ترافیک خودِ گوشی است → از VPN فعال عبور می‌کند
-- رزولوشن DNS سمت گوشی انجام می‌شود (از مسیر VPN)
+- No authentication (protection via WPA2 hotspot password)
+- Each proxy connection exits as the phone's own traffic → passes through the active VPN
+- DNS resolution happens on the phone (via the VPN path)
 
 ### HTTP Proxy
 
-- درخواست‌های `CONNECT host:port` (تunnel HTTPS)
-- درخواست‌های `GET/POST http://host/path` (HTTP مطلق) با بازنویسی به origin-form
-- پس از `200 Connection Established` یا پاسخ اولیه، لوله دوطرفه
+- `CONNECT host:port` requests (HTTPS tunnel)
+- `GET/POST http://host/path` (absolute-form HTTP) rewritten to origin-form
+- After `200 Connection Established` or the first response, a bidirectional pipe
 
 ### SOCKS5
 
-- بدون احراز هویت (`05 00`)
-- پشتیبانی از IPv4، دامنه و IPv6
-- `CONNECT` فقط
+- No authentication (`05 00`)
+- IPv4, domain names, and IPv6
+- `CONNECT` only
 
-## ۲. API کنترل (پورت 7777)
+## 2. Control API (port 7777)
 
-HTTP/1.1 + JSON روی `0.0.0.0:7777`
+HTTP/1.1 + JSON on `0.0.0.0:7777`
 
-### جفت‌سازی
+### Pairing
 
 ```
 POST /api/v1/pair
@@ -38,16 +38,16 @@ Content-Type: application/json
 {"code": "123456"}
 ```
 
-پاسخ:
+Response:
 
 ```json
 {"token": "b3c1..."}
 ```
 
-- کد ۶ رقمی در برگه «اشتراک‌گذاری» اپ گوشی نمایش داده می‌شود.
-- توکن پس از جفت‌سازی دائمی است و در دسک‌تاپ ذخیره می‌شود.
+- The 6-digit code is shown on the phone app's Sharing tab.
+- The token is persistent after pairing and stored on the desktop.
 
-### وضعیت (نیازمند توکن)
+### Status (requires token)
 
 ```
 GET /api/v1/status
@@ -75,19 +75,17 @@ Authorization: Bearer <token>
 }
 ```
 
-| فیلد | معنا |
-|------|------|
-| `internetReachable` | خودِ گوشی الان مسیر سالم به اینترنت دارد |
+| Field | Meaning |
+|-------|---------|
+| `internetReachable` | The phone itself currently has a healthy path to the internet |
 | `transport` | `USB_TETHER` / `WIFI_HOTSPOT` / `NONE` |
-| `reachable` | اشتراک روشن است و آدرس قابل‌اتصالی وجود دارد |
-| `ips` | فقط آدرس‌های قابل‌اتصال (بدون rmnet و TUN) |
-| `warning` | کد پایدار `no_internet` / `no_vpn` / `no_transport` یا `null` — UI هر طرف متن را به زبان خودش می‌سازد |
+| `reachable` | Sharing is on and a connectable address exists |
+| `ips` | Only connectable addresses (no rmnet, no TUN) |
+| `warning` | Stable code `no_internet` / `no_vpn` / `no_transport` or `null` — each UI builds its own localized text |
 
-> `internetReachable = false` معمولاً یعنی تونل VPN بالا آمده ولی شبکه زیرین آن
-> قطع است. در این حالت پروکسی هیچ چیزی را فوروارد نمی‌کند و دسک‌تاپ باید به کاربر
-> بگوید VPN را قطع کند — نه اینکه VPN را روشن کند.
+> `internetReachable = false` usually means the VPN tunnel is up but its underlay is down. In that state the proxy forwards nothing and the desktop should tell the user to **turn the VPN off** — not turn it on.
 
-### کلاینت‌ها (نیازمند توکن)
+### Clients (requires token)
 
 ```
 GET /api/v1/clients
@@ -109,26 +107,25 @@ Authorization: Bearer <token>
 }
 ```
 
-هر آدرس IP یک کلاینت است و همه سوکت‌های آن در یک رکورد جمع می‌شوند. کلاینتی که
-۹۰ ثانیه خبری از آن نباشد و اتصال بازی نداشته باشد حذف می‌شود.
+Each IP address is one client and all of its sockets are rolled into one record. A client unseen for 90 seconds with no open connections is removed.
 
-### شیر اشتراک
+### Share control
 
 ```
 POST /api/v1/start     Authorization: Bearer <token>   → {"ok": true}
 POST /api/v1/stop      Authorization: Bearer <token>   → {"ok": true}
-POST /api/v1/recycle   Authorization: Bearer <token>   → {"code": "654321"}   # کد جدید
+POST /api/v1/recycle   Authorization: Bearer <token>   → {"code": "654321"}   # new code
 ```
 
-## ۳. کشف خودکار (mDNS)
+## 3. Auto-discovery (mDNS)
 
-- نام سرویس: `_netbridge._tcp.local`
-- سرویس API کنترل را روی پورت `7777` اعلام می‌کند
-- پس از کشف آدرس IP، دسک‌تاپ از `/status` پورت پروکسی را می‌گیرد
+- Service name: `_netbridge._tcp.local.`
+- Announces the control API service on port `7777`
+- After discovering the IP, desktop fetches proxy ports from `/status`
 
-## ۴. System Proxy ویندوز
+## 4. Windows System Proxy
 
-دسک‌تاپ یک پروکسی محلی روی `127.0.0.1:18080` بالا می‌آورد و registry زیر را ست می‌کند:
+Desktop starts a local proxy on `127.0.0.1:18080` and sets:
 
 ```
 HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings
@@ -136,10 +133,10 @@ HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings
   ProxyServer = 127.0.0.1:18080 (SZ)
 ```
 
-بدون نیاز به Administrator. هنگام قطع اتصال، مقادیر قبلی بازگردانی می‌شوند.
+No Administrator required. On disconnect, previous values are restored.
 
-زنجیره:
+Chain:
 
 ```
-مرورگر/برنامه → 127.0.0.1:18080 → پروکسی گوشی:8080 → VPN گوشی → اینترنت
+Browser/app → 127.0.0.1:18080 → phone proxy:8080 → phone VPN → internet
 ```
