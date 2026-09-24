@@ -178,5 +178,61 @@ check('phone strips the "Bearer " prefix', () => {
   assert.ok(kotlinApi.includes('removePrefix("Bearer ")'), 'phone does not parse the Bearer prefix')
 })
 
+// ---- Start must not lie: only ok when the HTTP proxy is actually listening ---
+check('/start returns ok only after HttpProxyServer.start() succeeds', () => {
+  assert.ok(
+    kotlinApi.includes('val ok = ShareManager.startSharing'),
+    'ControlApiServer /start no longer checks the startSharing return value'
+  )
+  assert.ok(
+    kotlinApi.includes('if (ok)'),
+    'ControlApiServer /start does not branch on the start result'
+  )
+})
+
+check('HttpProxyServer.start() binds synchronously and returns Boolean', () => {
+  const httpSrc = read('mobile/app/src/main/java/com/netbridge/share/share/HttpProxyServer.kt')
+  assert.ok(
+    httpSrc.includes('fun start(): Boolean'),
+    'HttpProxyServer.start must return whether the port is listening'
+  )
+  assert.ok(
+    httpSrc.includes('ss.bind(') && !/sc\.launch\s*\{\s*try\s*\{\s*val ss = ServerSocket\(\)/.test(httpSrc),
+    'HttpProxyServer must bind before returning (no fire-and-forget bind)'
+  )
+})
+
+check('ControlApiServer.start() binds synchronously and returns Boolean', () => {
+  assert.ok(
+    kotlinApi.includes('fun start(): Boolean'),
+    'ControlApiServer.start must return whether the port is listening'
+  )
+})
+
+check('desktop probes the phone HTTP proxy before claiming connected', () => {
+  const ipc = read('desktop/src/main/ipc.ts')
+  assert.ok(ipc.includes('probeHttp'), 'ipc.ts does not probe the phone data path')
+  assert.ok(
+    ipc.includes('phone_proxy_unreachable'),
+    'ipc.ts does not fail when the phone proxy port is down'
+  )
+})
+
+check('System Proxy apply clears a leftover PAC (AutoConfigURL)', () => {
+  const sp = read('desktop/src/main/systemProxy.ts')
+  assert.ok(
+    sp.includes('AutoConfigURL'),
+    'systemProxy.ts does not touch AutoConfigURL — a PAC would ignore ProxyServer'
+  )
+})
+
+check('desktop clears the token on 401 so the user can re-pair', () => {
+  const ipc = read('desktop/src/main/ipc.ts')
+  assert.ok(
+    ipc.includes("store.save({ token: '' })"),
+    'ipc.ts never clears an invalid token — reconnect would loop forever'
+  )
+})
+
 console.log(`\n${pass} passed, ${fail} failed\n`)
 process.exit(fail === 0 ? 0 : 1)

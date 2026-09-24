@@ -5,10 +5,14 @@ on:
     branches: [main, master]
     paths:
       - 'desktop/**'
+      - 'tools/**'
+      - 'package.json'
       - '.github/workflows/desktop.yml'
   pull_request:
     paths:
       - 'desktop/**'
+      - 'tools/**'
+      - 'package.json'
       - '.github/workflows/desktop.yml'
   workflow_dispatch:
 
@@ -38,3 +42,24 @@ jobs:
 
       - name: Build check
         run: npm run build
+
+      - name: Smoke + contract tests
+        working-directory: .
+        shell: bash
+        run: |
+          ./desktop/node_modules/.bin/tsc desktop/src/main/proxyChain.ts \
+            --outDir desktop/.smoke --module commonjs --target es2022 \
+            --esModuleInterop --skipLibCheck
+          node tools/smoke-test.mjs
+          node tools/contract-test.mjs
+
+      - name: Package NSIS installer
+        run: npm run dist
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetBridge-Setup
+          path: desktop/release/NetBridge Setup *.exe
+          if-no-files-found: error
+          retention-days: 14

@@ -34,12 +34,8 @@ export interface PhoneStatus {
 const TIMEOUT_MS = 5000
 export const CONTROL_PORT = 7777
 
-/** TCP probe — is the phone's control API listening on this address? */
-export function probeControl(
-  host: string,
-  port: number = CONTROL_PORT,
-  timeoutMs = 1500
-): Promise<boolean> {
+/** Generic TCP probe — is anything listening on host:port? */
+export function probeTcp(host: string, port: number, timeoutMs = 2500): Promise<boolean> {
   return new Promise((resolve) => {
     let settled = false
     const done = (ok: boolean): void => {
@@ -54,6 +50,20 @@ export function probeControl(
     socket.once('connect', () => done(true))
     socket.once('error', () => done(false))
   })
+}
+
+/** Control API (7777) accepted a TCP connect — safe to pair against. */
+export function probeControl(
+  host: string,
+  port: number = CONTROL_PORT,
+  timeoutMs = 2500
+): Promise<boolean> {
+  return probeTcp(host, port, timeoutMs)
+}
+
+/** Phone HTTP proxy accepted a TCP connect — the data path can carry traffic. */
+export function probeHttp(host: string, port: number, timeoutMs = 2500): Promise<boolean> {
+  return probeTcp(host, port, timeoutMs)
 }
 
 function networkError(host: string, e: unknown): Error {
@@ -117,9 +127,12 @@ async function request<T>(
 }
 
 export async function pair(host: string, code: string): Promise<string> {
-  const res = await request<{ token: string }>(host, '/api/v1/pair', undefined, 'POST', {
+  const res = await request<{ token?: string }>(host, '/api/v1/pair', undefined, 'POST', {
     code
   })
+  if (!res?.token) {
+    throw new Error('pairing succeeded but the phone returned no token')
+  }
   return res.token
 }
 

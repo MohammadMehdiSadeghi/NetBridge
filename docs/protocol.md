@@ -117,6 +117,10 @@ POST /api/v1/stop      Authorization: Bearer <token>   → {"ok": true}
 POST /api/v1/recycle   Authorization: Bearer <token>   → {"code": "654321"}   # new code
 ```
 
+`/start` returns `{"ok": true}` **only after** the HTTP proxy port is actually
+listening. On bind failure it returns HTTP 500 with `{"error": "..."}`. The desktop
+treats a 200 as proof that `:httpPort` can accept TCP.
+
 ## 3. Auto-discovery (mDNS)
 
 - Service name: `_netbridge._tcp.local.`
@@ -131,9 +135,11 @@ Desktop starts a local proxy on `127.0.0.1:18080` and sets:
 HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings
   ProxyEnable = 1 (DWORD)
   ProxyServer = 127.0.0.1:18080 (SZ)
+  AutoConfigURL = (removed while connected)
 ```
 
-No Administrator required. On disconnect, previous values are restored.
+A leftover PAC (`AutoConfigURL`) makes Windows ignore `ProxyServer`, so it is
+removed for the session and restored on disconnect. No Administrator required.
 
 Chain:
 

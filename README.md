@@ -1,69 +1,28 @@
 # NetBridge
 
-**Share phone internet to PC — with the phone's VPN applied to the shared connection.**
+Share your phone internet to the PC — with the phone's VPN applied to the shared
+connection. Like PdaNet, but free, open source, and under your control.
 
-Like PdaNet, but free, open source, and under your control.
+Interface: Persian (RTL) on the phone, English + Persian on the desktop.
 
----
-
-## Why NetBridge?
-
-You enable a VPN on your phone (and share hotspot/USB), but by default PC traffic bypasses the VPN and goes straight to the internet — your shared connection leaks outside the tunnel.
-
-Existing tools did not work for me: they were **paid**, **closed**, or **did not apply my VPN** to the shared link. That is why I built NetBridge.
-
-## How it works
-
-NetBridge builds a **proxy bridge** between PC and phone. Because the proxy exit is the phone's own traffic, it passes through the active phone VPN → **the shared link includes the VPN.** No root, no server, no changing your VPN app.
-
-```
-PC browser → Windows System Proxy → phone proxy → phone VPN → internet
-```
-
----
-
-## Project layout
-
-| Folder | Contents |
-|--------|----------|
-| `mobile/` | Android app — Kotlin + Jetpack Compose (Persian/RTL) |
-| `desktop/` | Windows app — Electron + React + TypeScript + Tailwind |
-| `docs/` | Architecture, LAN protocol, deployment and testing |
-| `tools/` | Automated tests (smoke + contract) |
-
-### Two technical points that make it work
-
-**1. VPN detection.** Android only marks one network active; when USB tethering turns on, that tether interface becomes active and a simple `activeNetwork` check no longer sees the VPN. The app enumerates all networks and separates three states: "VPN on", "VPN on but phone has no internet", and "VPN off". Each has its own message and fix (`mobile/.../net/Interfaces.kt`).
-
-**2. Proxy egress path.** Outbound sockets bind to the network that carries the tunnel, so system traffic actually goes through the VPN instead of the default tether route (`Interfaces.preferredRoute()`). While VPN is up we never bind to the physical WAN (tunnel bypass). If bind fails, we carefully fall back to the default route so no request is dropped without reason.
-
----
+**Requires:** Windows 10/11 · Android 8+ · Node.js 20+ (desktop build only)
 
 ## Quick start
 
-### Android — download APK
+### Android
 
-The ready-to-install APK lives **in this repository** (no build required):
+Install the ready APK from this repository (no build required):
 
 ```
 https://github.com/MohammadMehdiSadeghi/NetBridge/raw/main/NetBridge.apk
 ```
 
-Or on the repo home page → file `NetBridge.apk` → **Download**
+Or open the repo home page → `NetBridge.apk` → **Download**. The same file is
+replaced on every update; the link stays stable.
 
-> On every update this same file is replaced; the link stays stable.
+### Windows
 
-**Build from source (optional — needs JDK 17 + Android Studio):**
-
-```bash
-cd mobile
-./gradlew assembleDebug      # Linux/macOS
-gradlew.bat assembleDebug    # Windows
-```
-
-### Windows — build in terminal
-
-No installer file is shipped in the repo; you build it yourself (requires [Node.js 20+](https://nodejs.org)):
+Build the installer yourself (needs [Node.js 20+](https://nodejs.org)):
 
 ```bash
 git clone https://github.com/MohammadMehdiSadeghi/NetBridge.git
@@ -74,52 +33,48 @@ npm run desktop:dist
 
 Output: `desktop/release/*.exe`
 
-Development run (no installer):
-
-```bash
-npm run desktop:dev
-```
+Development run (no installer): `npm run desktop:dev`
 
 ### Connect
 
-1. Enable your VPN on the phone (All-apps mode)
-2. NetBridge app → Share button
-3. Pick one path:
-   - **Hotspot:** turn hotspot on, join from PC → phone IP usually `192.168.43.1`
-   - **USB:** plug cable and enable **USB tethering** in phone settings → phone IP usually `192.168.42.129`
-4. Desktop app on PC → find phone → enter 6-digit code → Connect
+1. Turn the VPN on the phone (All-apps mode)
+2. NetBridge app → **Share**
+3. Pick a path:
+   - **Hotspot** — phone IP usually `192.168.43.1`
+   - **USB** — plug the cable and enable **USB tethering** → phone IP usually `192.168.42.129`
+4. Desktop app → find phone → enter the 6-digit code → **Connect**
 5. Done. Windows System Proxy is on.
 
-> **Important USB note:** Plugging the cable alone does not share internet. Until **USB tethering** is on, the PC has no path to the phone proxy.
+> **USB:** plugging the cable alone does nothing. Until **USB tethering** is on,
+> the PC cannot reach the phone proxy.
 
-> **If Windows says no internet:** Some Windows builds ignore the proxy when the tether link is "metered" or has no connectivity probe. Turn off **Metered connection** for that network adapter.
+> **Windows says no internet?** Turn off **Metered connection** for that adapter;
+> some builds ignore the proxy on metered links.
 
----
+## Why NetBridge?
 
-## Documentation
+By default, PC traffic after hotspot/USB sharing **bypasses the phone VPN** and
+leaves the tunnel. Existing tools were paid, closed, or did not apply the VPN to
+the shared link. NetBridge builds a proxy bridge so the exit is the phone's own
+traffic — the shared connection includes the VPN. No root, no server, no VPN app
+changes.
 
-- [Architecture](docs/architecture.md)
-- [LAN protocol](docs/protocol.md)
-- [Deployment and troubleshooting](docs/deployment.md)
-- [Running guide](docs/running.md)
-- [Testing guide](docs/testing.md)
-
----
-
-## Tests
-
-```bash
-npm test
+```
+PC browser → Windows System Proxy → phone proxy → phone VPN → internet
 ```
 
-Six stages: desktop typecheck, build, and two tests that run **without a phone and without Android Studio**:
+## What it does
 
-- **smoke test** — runs the real `ProxyChain` class against a fake phone and checks the traffic path, byte counters, `CONNECT` tunnel, error states (`502`/`503`), and 20 concurrent connections.
-- **contract test** — 38 checks on the Kotlin ↔ TypeScript contract so a field changed on one side is caught.
-
-To build `exe` / `apk` and test on a real phone → [docs/testing.md](docs/testing.md).
-
----
+* **Phone app (Android)** — Kotlin + Jetpack Compose, Persian/RTL. Detects VPN
+  state (on / on-but-no-internet / off), starts the HTTP + SOCKS5 proxy and the
+  pairing API.
+* **Desktop app (Windows)** — Electron + React + TypeScript. Finds the phone on
+  the LAN, pairs with a 6-digit code, and sets the Windows System Proxy.
+* **VPN-aware egress** — outbound sockets bind to the tunnel network so traffic
+  actually goes through the VPN (`Interfaces.preferredRoute()`).
+* **Pairing** — control port `7777` is probed first; clear errors if the phone
+  is unreachable, the code is wrong, or the VPN has no underlay internet.
+* **Byte counters** — live up/down totals on both sides.
 
 ## Ports
 
@@ -130,29 +85,192 @@ To build `exe` / `apk` and test on a real phone → [docs/testing.md](docs/testi
 | 7777 | Control API + pairing |
 | 18080 | Desktop local proxy (Windows System Proxy) |
 
----
+## Project layout
 
-## Quick troubleshooting
+| Folder | Contents |
+|--------|----------|
+| `mobile/` | Android app — Kotlin + Jetpack Compose |
+| `desktop/` | Windows app — Electron + React + TypeScript |
+| `docs/` | Architecture, LAN protocol, deployment, testing |
+| `tools/` | Automated tests (smoke + contract) |
+
+## Tests
+
+```bash
+npm test
+```
+
+Typecheck, build, smoke test (real `ProxyChain` against a fake phone), and a
+38-check Kotlin ↔ TypeScript contract test — no phone and no Android Studio needed.
+
+## Troubleshooting
 
 | Symptom | Meaning | Action |
 |---------|---------|--------|
 | "Phone internet unreachable" | VPN tunnel without underlay | Turn VPN off or check mobile data |
 | "System link: none" | Neither hotspot nor USB on | Turn one on |
 | "VPN not active" | Share works but traffic skips tunnel | Enable VPN in All-apps mode |
-| Connected clients list empty | Requests never reach the phone | Check phone address and Windows firewall |
+| Connected clients empty | Requests never reach the phone | Check phone IP and Windows firewall |
 
 Full table → [docs/deployment.md](docs/deployment.md)
 
----
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [LAN protocol](docs/protocol.md)
+- [Deployment and troubleshooting](docs/deployment.md)
+- [Running guide](docs/running.md)
+- [Testing guide](docs/testing.md)
 
 ## Limitations
 
-- System Proxy coverage: browsers and most Windows apps — same as PdaNet
-- Raw UDP traffic (some games): not supported (system-level TUN in a later version)
-- Keep the VPN app in **All-apps** mode
-
----
+* System Proxy covers browsers and most Windows apps — same as PdaNet
+* Raw UDP (some games) is not supported yet (system TUN later)
+* Keep the VPN app in **All-apps** mode
 
 ## License
 
-[MIT](LICENSE)
+Released under the **MIT License** — full text in [`LICENSE`](LICENSE).
+
+Free to use, copy, modify, publish and distribute, as long as the copyright notice
+and the license text stay with the software. Provided "as is", without warranty.
+
+---
+
+# NetBridge
+
+اینترنت گوشی را با گوشی به اشتراک بگذارید — طوری که **VPN گوشی روی اتصال اشتراکی
+هم اعمال شود.** مثل PdaNet، ولی رایگان، متن‌باز و تحت کنترل شما.
+
+رابط کاربری: فارسی (راست‌به‌چپ) روی گوشی؛ انگلیسی و فارسی روی دسکتاپ.
+
+**نیازمندی‌ها:** Windows 10/11 · Android 8+ · Node.js 20+ (فقط برای ساخت دسکتاپ)
+
+## شروع سریع
+
+### اندروید
+
+APK آماده را از همین ریپو نصب کنید (بدون نیاز به ساخت):
+
+```
+https://github.com/MohammadMehdiSadeghi/NetBridge/raw/main/NetBridge.apk
+```
+
+یا از صفحهٔ اصلی ریپو → فایل `NetBridge.apk` → **Download**. با هر به‌روزرسانی همین
+فایل جایگزین می‌شود و لینک ثابت می‌ماند.
+
+### ویندوز
+
+نصبی را خودتان بسازید (نیاز به [Node.js 20+](https://nodejs.org)):
+
+```bash
+git clone https://github.com/MohammadMehdiSadeghi/NetBridge.git
+cd NetBridge
+npm install --prefix desktop
+npm run desktop:dist
+```
+
+خروجی: `desktop/release/*.exe`
+
+اجرای توسعه (بدون نصبی): `npm run desktop:dev`
+
+### اتصال
+
+1. VPN را روی گوشی روشن کنید (حالت All-apps)
+2. برنامه NetBridge → **Share**
+3. یکی از مسیرها را انتخاب کنید:
+   - **هاست‌اسپات** — معمولاً IP گوشی `192.168.43.1`
+   - **USB** — کابل را وصل کنید و **USB tethering** را روشن کنید → معمولاً `192.168.42.129`
+4. برنامه دسکتاپ → پیدا کردن گوشی → کد ۶ رقمی → **Connect**
+5. تمام. System Proxy ویندوز روشن است.
+
+> **USB:** فقط وصل کردن کابل کافی نیست. تا **USB tethering** روشن نشود، رایانه به
+> پروکسی گوشی راه ندارد.
+
+> **ویندوز می‌گوید اینترنت نیست؟** برای همان آداپتور **Metered connection** را خاموش
+> کنید؛ برخی نسخه‌ها روی لینک‌های metered پروکسی را نادیده می‌گیرند.
+
+## چرا NetBridge؟
+
+به‌صورت پیش‌فرض، ترافیک رایانه بعد از اشتراک هاست‌اسپات/USB **از کنار VPN گوشی
+رد می‌شود** و از تونل خارج می‌شود. ابزارهای موجود یا پولی بودند، یا بسته، یا VPN
+را روی لینک اشتراکی اعمال نمی‌کردند. NetBridge یک پل پروکسی می‌سازد تا خروجی،
+ترافیک خود گوشی باشد — یعنی اتصال اشتراکی شامل VPN می‌شود. بدون روت، بدون سرور،
+بدون تغییر برنامهٔ VPN.
+
+```
+مرورگر رایانه → System Proxy ویندوز → پروکسی گوشی → VPN گوشی → اینترنت
+```
+
+## برنامه چه کاری انجام می‌دهد؟
+
+* **برنامهٔ گوشی (اندروید)** — Kotlin + Jetpack Compose، فارسی/RTL. وضعیت VPN را
+  تشخیص می‌دهد (روشن / روشن بدون اینترنت گوشی / خاموش)، پروکسی HTTP + SOCKS5 و
+  API جفت‌سازی را بالا می‌آورد.
+* **برنامهٔ دسکتاپ (ویندوز)** — Electron + React + TypeScript. گوشی را در شبکه
+  پیدا می‌کند، با کد ۶ رقمی جفت می‌شود و System Proxy ویندوز را تنظیم می‌کند.
+* **خروجی آگاه از VPN** — سوکت‌های خروجی به شبکهٔ تونل bind می‌شوند تا ترافیک واقعاً
+  از VPN رد شود (`Interfaces.preferredRoute()`).
+* **جفت‌سازی** — اول پورت کنترل `7777` بررسی می‌شود؛ خطاهای روشن اگر گوشی قابل
+  دسترسی نباشد، کد اشتباه باشد، یا VPN اینترنت پایه نداشته باشد.
+* **شمارندهٔ بایت** — مجموع آپلود/دانلود زنده در هر دو سمت.
+
+## پورت‌ها
+
+| پورت | نقش |
+|------|-----|
+| 8080 | پروکسی HTTP گوشی (هاست‌اسپات / USB) |
+| 1080 | SOCKS5 گوشی |
+| 7777 | API کنترل + جفت‌سازی |
+| 18080 | پروکسی محلی دسکتاپ (System Proxy ویندوز) |
+
+## ساختار پروژه
+
+| پوشه | محتوا |
+|------|-------|
+| `mobile/` | اپ اندروید — Kotlin + Jetpack Compose |
+| `desktop/` | اپ ویندوز — Electron + React + TypeScript |
+| `docs/` | معماری، پروتکل LAN، استقرار، تست |
+| `tools/` | تست‌های خودکار (smoke + contract) |
+
+## تست‌ها
+
+```bash
+npm test
+```
+
+تایپ‌چک، بیلد، تست دود (کلاس واقعی `ProxyChain` مقابل گوشی ساختگی) و ۳۸ بررسی
+قرارداد Kotlin ↔ TypeScript — بدون گوشی و بدون Android Studio.
+
+## عیب‌یابی
+
+| علامت | معنی | اقدام |
+|-------|------|-------|
+| "Phone internet unreachable" | تونل VPN بدون اینترنت پایه | VPN را خاموش کنید یا دیتا را چک کنید |
+| "System link: none" | نه هاست‌اسپات و نه USB روشن است | یکی را روشن کنید |
+| "VPN not active" | اشتراک کار می‌کند ولی ترافیک از کنار تونل می‌رود | VPN را در حالت All-apps فعال کنید |
+| لیست کلاینت‌ها خالی | درخواست‌ها به گوشی نمی‌رسند | IP گوشی و فایروال ویندوز را چک کنید |
+
+جدول کامل → [docs/deployment.md](docs/deployment.md)
+
+## مستندات
+
+- [معماری](docs/architecture.md)
+- [پروتکل LAN](docs/protocol.md)
+- [استقرار و عیب‌یابی](docs/deployment.md)
+- [راهنمای اجرا](docs/running.md)
+- [راهنمای تست](docs/testing.md)
+
+## محدودیت‌ها
+
+* پوشش System Proxy: مرورگرها و بیشتر برنامه‌های ویندوز — مثل PdaNet
+* ترافیک UDP خام (بعضی بازی‌ها): فعلاً پشتیبانی نمی‌شود (TON سیستمی بعداً)
+* برنامهٔ VPN را در حالت **All-apps** نگه دارید
+
+## مجوز
+
+این پروژه تحت **مجوز MIT** منتشر شده است. متن کامل در [`LICENSE`](LICENSE).
+
+استفاده، کپی، تغییر، انتشار و توزیع آزاد است؛ مشروط بر اینکه اطلاعیه کپی‌رایت و
+متن مجوز همراه نرم‌افزار باقی بماند. این نرم‌افزار **«همان‌طور که هست»** ارائه
+می‌شود و هیچ ضمانتی ندارد.

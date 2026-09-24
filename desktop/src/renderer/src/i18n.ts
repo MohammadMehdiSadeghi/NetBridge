@@ -94,6 +94,10 @@ const fa = {
   errPairFirst: 'ابتدا با کد ۶ رقمی گوشی جفت‌سازی کنید',
   errPhoneUnreachable: 'گوشی در دسترس نیست',
   errStartShareFailed: 'روشن کردن اشتراک گوشی ناموفق بود',
+  errPhoneProxyUnreachable:
+    'پورت پروکسی گوشی باز نیست — در اپ گوشی «اشتراک‌گذاری» را روشن کنید و دوباره تلاش کنید.',
+  errSystemProxyFailed:
+    'تنظیم System Proxy ویندوز ناموفق بود — تنظیمات شبکه یا آنتی‌ویروس را بررسی کنید.',
   errNoConnectableAddress:
     'گوشی اشتراک را روشن کرده ولی آدرس قابل‌اتصالی ندارد. هات‌اسپات یا USB tethering را روی گوشی روشن کنید.',
   errScanFailed: 'جستجوی گوشی ناموفق بود',
@@ -226,6 +230,10 @@ const en: typeof fa = {
   errPairFirst: 'Pair with the phone’s 6-digit code first',
   errPhoneUnreachable: 'Phone is unreachable',
   errStartShareFailed: 'Failed to start sharing on the phone',
+  errPhoneProxyUnreachable:
+    'The phone proxy port is closed — turn Sharing on in the phone app and try again.',
+  errSystemProxyFailed:
+    'Could not set the Windows System Proxy — check network settings or antivirus.',
   errNoConnectableAddress:
     'Sharing is on but the phone has no connectable address. Turn on hotspot or USB tethering.',
   errScanFailed: 'Phone scan failed',
@@ -350,6 +358,10 @@ export function errorText(error: string): string {
       return wrong(withDetail(d.errPhoneUnreachable))
     case 'start_share_failed':
       return wrong(withDetail(d.errStartShareFailed))
+    case 'phone_proxy_unreachable':
+      return wrong(withDetail(d.errPhoneProxyUnreachable))
+    case 'system_proxy_failed':
+      return wrong(withDetail(d.errSystemProxyFailed))
     case 'no_connectable_address':
       return wrong(d.errNoConnectableAddress)
     case 'scan_failed':

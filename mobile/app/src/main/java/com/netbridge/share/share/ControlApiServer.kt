@@ -28,16 +28,17 @@ class ControlApiServer(
     private var serverSocket: ServerSocket? = null
     private var scope: CoroutineScope? = null
 
-    fun start() {
-        if (!running.compareAndSet(false, true)) return
-        val sc = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-        scope = sc
-        sc.launch {
-            try {
-                val ss = ServerSocket()
-                ss.reuseAddress = true
-                ss.bind(InetSocketAddress("0.0.0.0", port), 32)
-                serverSocket = ss
+    /** Returns true only when the control port is actually listening. */
+    fun start(): Boolean {
+        if (!running.compareAndSet(false, true)) return serverSocket?.isBound == true
+        return try {
+            val ss = ServerSocket()
+            ss.reuseAddress = true
+            ss.bind(InetSocketAddress("0.0.0.0", port), 32)
+            serverSocket = ss
+            val sc = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            scope = sc
+            sc.launch {
                 while (running.get()) {
                     val socket = try {
                         ss.accept()
@@ -46,9 +47,13 @@ class ControlApiServer(
                     }
                     launch { handle(socket) }
                 }
-            } catch (_: Exception) {
                 running.set(false)
             }
+            true
+        } catch (_: Exception) {
+            running.set(false)
+            serverSocket = null
+            false
         }
     }
 
@@ -116,7 +121,23 @@ class ControlApiServer(
                 output.flush()
             }
         } catch (_: Exception) {
-            // ignore malformed clients
+            // Best-effort 500 so a broken handler does not look like a dead phone
+            // (the desktop would otherwise hang until its fetch timeout).
+            try {
+                socket.use { s ->
+                    val body = err("internal error").toString().toByteArray(Charsets.UTF_8)
+                    val head = (
+                        "HTTP/1.1 500 Internal Server Error\r\n" +
+                            "Content-Type: application/json; charset=utf-8\r\n" +
+                            "Content-Length: ${body.size}\r\n" +
+                            "Connection: close\r\n\r\n"
+                        ).toByteArray()
+                    s.getOutputStream().write(head)
+                    s.getOutputStream().write(body)
+                    s.getOutputStream().flush()
+                }
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -185,8 +206,16 @@ class ControlApiServer(
             }
 
             method == "POST" && cleanPath == "/api/v1/start" -> {
-                ShareManager.startSharing(background = true)
-                200 to JSONObject().put("ok", true)
+                // Only report success when the HTTP proxy is really listening.
+                // An unconditional ok:true made the desktop skip its own start
+                // and dial a dead :8080 while the UI said connected.
+                val ok = ShareManager.startSharing(background = true)
+                if (ok) {
+                    200 to JSONObject().put("ok", true)
+                } else {
+                    val detail = ShareManager.state.value.error ?: "proxy failed to bind"
+                    500 to err(detail)
+                }
             }
 
             method == "POST" && cleanPath == "/api/v1/stop" -> {

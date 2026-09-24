@@ -24,6 +24,18 @@ import kotlinx.coroutines.launch
  * Outbound sockets are opened *from the phone*, so they inherit whatever route the
  * phone's VPN app has installed. That is the whole trick: no root, no server, and
  * the PC's traffic ends up inside the tunnel.
+ *
+ * [start] binds the ServerSocket on the calling thread and only returns true when
+ * the port is actually listening. An async bind used to report success before the
+ * port was open, so the desktop thought sharing was up while every request got 502.
+ */
+
+/**
+ * HTTP proxy shared over the LAN.
+ *
+ * Outbound sockets are opened *from the phone*, so they inherit whatever route the
+ * phone's VPN app has installed. That is the whole trick: no root, no server, and
+ * the PC's traffic ends up inside the tunnel.
  */
 class HttpProxyServer(
     private val port: Int,
@@ -48,16 +60,17 @@ class HttpProxyServer(
     @Volatile
     private var routeResolvedAt = 0L
 
-    fun start() {
-        if (!running.compareAndSet(false, true)) return
-        val sc = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-        scope = sc
-        sc.launch {
-            try {
-                val ss = ServerSocket()
-                ss.reuseAddress = true
-                ss.bind(InetSocketAddress("0.0.0.0", port), 128)
-                serverSocket = ss
+    /** Returns true only when the proxy port is accepting connections. */
+    fun start(): Boolean {
+        if (!running.compareAndSet(false, true)) return serverSocket?.isBound == true
+        return try {
+            val ss = ServerSocket()
+            ss.reuseAddress = true
+            ss.bind(InetSocketAddress("0.0.0.0", port), 128)
+            serverSocket = ss
+            val sc = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            scope = sc
+            sc.launch {
                 while (running.get()) {
                     val socket = try {
                         ss.accept()
@@ -67,11 +80,14 @@ class HttpProxyServer(
                     val id = synchronized(this) { ++idSeq }
                     launch { handle(socket, id) }
                 }
-            } catch (e: Exception) {
-                if (running.get()) {
-                    onEvent(Event.Error("HTTP Proxy: ${e.message ?: "error"}"))
-                }
+                running.set(false)
             }
+            true
+        } catch (e: Exception) {
+            running.set(false)
+            serverSocket = null
+            onEvent(Event.Error("HTTP Proxy: ${e.message ?: "bind failed on :$port"}"))
+            false
         }
     }
 

@@ -180,13 +180,20 @@ object ShareManager {
             appContext = ctx
         )
         controlServer = server
-        server.start()
-        _state.value = _state.value.copy(controlAlive = true, error = null)
+        val bound = server.start()
+        _state.value = _state.value.copy(
+            controlAlive = bound,
+            error = if (bound) null else "control API failed to bind :${store.controlPort}"
+        )
     }
 
-    fun startSharing(background: Boolean = false) {
-        val ctx = appContext ?: return
-        if (_state.value.sharing) return
+    /**
+     * Starts the HTTP + SOCKS proxies. Returns true only when the HTTP proxy
+     * (the path the desktop uses) is actually listening on [SettingsStore.httpPort].
+     */
+    fun startSharing(background: Boolean = false): Boolean {
+        val ctx = appContext ?: return false
+        if (_state.value.sharing) return true
 
         ClientRegistry.reset()
 
@@ -201,14 +208,17 @@ object ShareManager {
             appContext = ctx
         )
 
-        try {
-            http.start()
-            socks.start()
-        } catch (e: Exception) {
-            _state.value = _state.value.copy(error = e.message ?: ctx.getString(R.string.error_proxy))
-            http.stop()
+        if (!http.start()) {
+            _state.value = _state.value.copy(
+                error = ctx.getString(R.string.error_proxy) + " :${store.httpPort}"
+            )
             socks.stop()
-            return
+            return false
+        }
+        // SOCKS is optional for the desktop path; a busy port must not block sharing.
+        try {
+            socks.start()
+        } catch (_: Exception) {
         }
 
         httpServer = http
@@ -223,6 +233,7 @@ object ShareManager {
             } catch (_: Exception) {
             }
         }
+        return true
     }
 
     private fun handleEvent(ev: HttpProxyServer.Event) {

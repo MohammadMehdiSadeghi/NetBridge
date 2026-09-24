@@ -7,6 +7,7 @@ import {
   getStatus,
   pair as apiPair,
   probeControl,
+  probeHttp,
   startSharing,
   stopSharing,
   CONTROL_PORT,
@@ -56,7 +57,7 @@ export function transportLabel(transport: string): string {
 
 export class AppController {
   private state: DesktopState
-  private savedProxy: ProxySnapshot = { enabled: false, server: '' }
+  private savedProxy: ProxySnapshot = { enabled: false, server: '', autoConfigURL: '' }
   private proxyApplied = false
   private pollTimer: NodeJS.Timeout | null = null
   private refreshTimer: NodeJS.Timeout | null = null
@@ -194,9 +195,10 @@ export class AppController {
     if (!host) this.fail('select_phone_first')
     this.patch({ connecting: true, error: null })
     // Fail fast with a clear code instead of a raw AbortError from fetch.
-    if (!(await probeControl(host))) {
+    // 2.5s (not 1.5s) so a busy phone on USB enum still gets a chance.
+    if (!(await probeControl(host, CONTROL_PORT, 2500))) {
       this.fail(
-        `pairing_failed::no answer from ${host}:${CONTROL_PORT} within 1500ms — pick the phone IP again or turn on hotspot/USB`
+        `pairing_failed::no answer from ${host}:${CONTROL_PORT} within 2500ms — pick the phone IP again or turn on hotspot/USB`
       )
     }
     try {
@@ -227,8 +229,15 @@ export class AppController {
         paired: true,
         error: null
       })
-    } catch {
-      // keep last known state; poll will retry
+    } catch (e) {
+      const msg = (e as Error).message
+      // Token invalidated (phone reinstall / recycle) — drop it so the UI
+      // asks for a new code instead of looping on phone_unreachable::unauthorized.
+      if (/unauthorized|invalid token|HTTP 401/i.test(msg)) {
+        await this.store.save({ token: '' })
+        this.patch({ paired: false })
+      }
+      // else: keep last known state; poll will retry
     }
 
     // Per-client detail is a second round trip and is only meaningful while
@@ -246,21 +255,17 @@ export class AppController {
   /**
    * Drop the OS proxy setting *before* building the tunnel, so no window exists in
    * which Windows would send traffic to a proxy that cannot forward it.
+   * Throws if the registry write fails — connect() must not claim success then.
    */
   private async armSystemProxy(): Promise<void> {
     if (!this.store.get().systemProxy) {
       this.patch({ systemProxyOn: false })
       return
     }
-    try {
-      this.savedProxy = await readSystemProxy()
-      await applySystemProxy(`127.0.0.1:${this.state.localPort}`)
-      this.proxyApplied = true
-      this.patch({ systemProxyOn: true })
-    } catch {
-      this.proxyApplied = false
-      this.patch({ systemProxyOn: false })
-    }
+    this.savedProxy = await readSystemProxy()
+    await applySystemProxy(`127.0.0.1:${this.state.localPort}`)
+    this.proxyApplied = true
+    this.patch({ systemProxyOn: true })
   }
 
   async connect(): Promise<void> {
@@ -290,7 +295,12 @@ export class AppController {
       status = await getStatus(this.state.phoneHost, s.token)
     } catch (e) {
       await disarm()
-      this.fail(`phone_unreachable::${(e as Error).message}`)
+      const msg = (e as Error).message
+      if (/unauthorized|invalid token|HTTP 401/i.test(msg)) {
+        await this.store.save({ token: '' })
+        this.patch({ paired: false })
+      }
+      this.fail(`phone_unreachable::${msg}`)
     }
 
     // Shut down any stale tunnel before touching the system proxy again.
@@ -301,7 +311,11 @@ export class AppController {
     // job or take the system proxy back down. Otherwise Windows would be left
     // pointing at a dead port — the classic "no internet after closing the app".
     try {
-      await this.armSystemProxy()
+      try {
+        await this.armSystemProxy()
+      } catch (e) {
+        throw new Error(`system_proxy_failed::${(e as Error).message}`)
+      }
 
       if (!status.sharing) {
         try {
@@ -311,12 +325,18 @@ export class AppController {
           await this.chain.stop()
           this.fail(`start_share_failed::${(e as Error).message}`)
         }
+        // Re-read: /start used to return ok:true even when bind failed.
+        try {
+          status = await getStatus(this.state.phoneHost, s.token)
+        } catch {
+          /* keep previous status; http probe below is the real gate */
+        }
       }
 
       this.chain.setPhone(this.state.phoneHost, status.httpPort)
       this.patch({
         phoneHttpPort: status.httpPort,
-        phoneSharing: true,
+        phoneSharing: status.sharing,
         vpnActive: status.vpnActive,
         internetReachable: status.internetReachable,
         transport: status.transport,
@@ -327,6 +347,15 @@ export class AppController {
       // Sharing with no reachable address means the PC has no route to the phone.
       if (status.ips.length === 0) {
         this.patch({ error: 'no_connectable_address' })
+      }
+
+      // The data path must accept TCP before we claim connected. Local listen
+      // alone was green while every request got 502 Phone Unreachable.
+      const httpPort = status.httpPort || this.state.phoneHttpPort || 8080
+      if (!(await probeHttp(this.state.phoneHost, httpPort, 2500))) {
+        throw new Error(
+          `phone_proxy_unreachable::${this.state.phoneHost}:${httpPort} is not accepting connections — check that sharing is on in the phone app`
+        )
       }
 
       this.patch({
