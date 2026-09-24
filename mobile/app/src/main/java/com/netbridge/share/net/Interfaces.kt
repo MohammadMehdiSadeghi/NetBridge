@@ -167,23 +167,25 @@ object Interfaces {
         try {
             for (network in cm.allNetworks) {
                 val caps = cm.getNetworkCapabilities(network) ?: continue
-                val link = cm.getLinkProperties(network)
-                val ipv4 = ipv4Of(link)
-                if (ipv4 == null) continue
-                all.add(network)
 
                 val hasVpn = caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
                 val hasWan = caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
                     caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
                     caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
 
-                if (hasVpn) {
-                    if (vpn == null) {
-                        vpn = network
-                        vpnCaps = caps
-                        vpnIsUplink = hasWan
-                    }
+                // Detect the VPN before the IPv4 filter: some tunnels only expose an
+                // IPv6 link address, and dropping them made the app claim "no VPN".
+                if (hasVpn && vpn == null) {
+                    vpn = network
+                    vpnCaps = caps
+                    vpnIsUplink = hasWan
                 }
+
+                val link = cm.getLinkProperties(network)
+                val ipv4 = ipv4Of(link)
+                if (ipv4 == null) continue
+                all.add(network)
+
                 if (hasWan) wans.add(network)
             }
         } catch (_: Exception) {
@@ -253,17 +255,16 @@ object Interfaces {
      * through the phone's tunnel.
      *
      * Preference order:
-     *  1. the VPN network, when it also carries an underlying transport — binding here
-     *     forces traffic into the tunnel even if the tether link took over as default;
-     *  2. a validated WAN network (VPN is a userspace app that reroutes anyway);
-     *  3. null, meaning "let Android choose", which is correct for a normal handset VPN.
+     *  1. the VPN network whenever one exists — binding here forces traffic into the
+     *     tunnel even if the tether link took over as default. Binding to a physical
+     *     WAN while a VPN is up would *bypass* the tunnel (the original bug).
+     *  2. a validated WAN network when there is no VPN (normal sharing).
+     *  3. null, meaning "let Android choose".
      */
     fun preferredRoute(context: Context): Network? {
         val report = enumerate(context)
-        report.vpnNetworks.firstOrNull()?.let { vpn ->
-            if (report.vpnIsUplink) return vpn
-        }
+        report.vpnNetworks.firstOrNull()?.let { return it }
         report.wanNetworks.firstOrNull()?.let { return it }
-        return report.vpnNetworks.firstOrNull()
+        return null
     }
 }
