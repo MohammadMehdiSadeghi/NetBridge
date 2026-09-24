@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Icon
@@ -30,6 +32,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.netbridge.share.R
+import com.netbridge.share.ui.screens.GuideScreen
 import com.netbridge.share.ui.screens.HomeScreen
 import com.netbridge.share.ui.screens.SettingsScreen
 import com.netbridge.share.ui.screens.ShareScreen
@@ -48,6 +51,7 @@ private data class Tab(
 private val tabs = listOf(
     Tab("home", R.string.tab_home, Icons.Filled.Home, Icons.Outlined.Home),
     Tab("share", R.string.tab_share, Icons.Filled.Share, Icons.Outlined.Share),
+    Tab("guide", R.string.tab_guide, Icons.Filled.Info, Icons.Outlined.Info),
     Tab("settings", R.string.tab_settings, Icons.Filled.Settings, Icons.Outlined.Settings)
 )
 
@@ -111,6 +115,7 @@ fun AppNav() {
             NavHost(navController = navController, startDestination = "home") {
                 composable("home") { HomeScreen() }
                 composable("share") { ShareScreen() }
+                composable("guide") { GuideScreen() }
                 composable("settings") { SettingsScreen() }
             }
         }
