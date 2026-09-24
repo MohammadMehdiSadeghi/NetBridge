@@ -237,7 +237,8 @@ class Socks5Server(
                 s.connect(InetSocketAddress(host, port), 12_000)
                 return s
             } catch (_: Exception) {
-                // fall through
+                // Fallback is the default route only — never a physical WAN bind,
+                // which would bypass an active VPN tunnel.
             }
         }
         return try {
