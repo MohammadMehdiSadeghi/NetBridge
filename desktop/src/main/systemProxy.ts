@@ -17,8 +17,8 @@ public class NetBridgeWinInet {
   public static extern bool InternetSetOption(int hInternet, int dwOption, IntPtr lpBuffer, int dwBufferLength);
 }
 "@
-[NetBridgeWinInet]::InternetSetOption(0, 39, IntPtr.Zero, 0) | Out-Null
-[NetBridgeWinInet]::InternetSetOption(0, 37, IntPtr.Zero, 0) | Out-Null
+[NetBridgeWinInet]::InternetSetOption(0, 39, [IntPtr]::Zero, 0) | Out-Null
+[NetBridgeWinInet]::InternetSetOption(0, 37, [IntPtr]::Zero, 0) | Out-Null
 `
 
 export interface ProxySnapshot {
