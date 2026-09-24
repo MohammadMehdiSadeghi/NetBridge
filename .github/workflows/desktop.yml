@@ -12,6 +12,9 @@ on:
       - '.github/workflows/desktop.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -36,10 +39,19 @@ jobs:
       - name: Build installer
         run: npm run dist
 
-      - name: Upload installer
+      - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: NetBridge-Setup
           path: |
             desktop/release/*.exe
           if-no-files-found: error
+
+      - name: Publish to Release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: NetBridge Latest
+          files: desktop/release/*.exe
+          fail_on_unmatched_files: true
