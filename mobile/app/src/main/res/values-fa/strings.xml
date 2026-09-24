@@ -7,6 +7,7 @@
     <!-- Navigation -->
     <string name="tab_home">خانه</string>
     <string name="tab_share">اشتراک‌گذاری</string>
+    <string name="tab_guide">راهنما</string>
     <string name="tab_settings">تنظیمات</string>
 
     <!-- Common -->
@@ -57,13 +58,36 @@
     <string name="hotspot_usb_hint">هات‌اسپات یا USB tethering را روشن کنید.</string>
     <string name="no_clients_yet">هنوز هیچ سیستمی وصل نشده. اگر سیستم وصل است ولی اینجا خالی است، یعنی سیستم آدرس گوشی را پیدا نکرده — از برگه هات‌اسپات آدرس گوشی را ببینید.</string>
     <string name="connections_count">%d اتصال</string>
-    <string name="connect_steps">مراحل اتصال سیستم</string>
-    <string name="step_1">۱. VPN دلخواه خود را روی گوشی روشن کنید (حالت همه برنامه‌ها).</string>
-    <string name="step_2">۲. هات‌اسپات را روشن کنید، یا کابل USB را وصل و «اشتراک اینترنت USB» را فعال کنید.</string>
-    <string name="step_3">۳. این اپ را روشن بگذارید (اشتراک فعال).</string>
-    <string name="step_4">۴. PC را به هات‌اسپات وصل کنید — یا اگر USB است، ویندوز خودش شبکه کابل را می‌شناسد.</string>
-    <string name="step_5">۵. اپ دسک‌تاپ را باز کنید و این کد را وارد کنید.</string>
-    <string name="step_6">۶. دکمه اتصال دسک‌تاپ را بزنید — تمام.</string>
+    <string name="connect_steps">چک‌لیست اتصال</string>
+    <string name="wrong_step_prefix">اینجا را اشتباه رفتی:</string>
+    <string name="step_ok">درست</string>
+    <string name="step_vpn">۱. VPN گوشی روشن باشد (حالت همه برنامه‌ها)</string>
+    <string name="step_vpn_fail">اینجا را اشتباه رفتی: VPN گوشی روشن نیست یا در حالت «برنامه‌های انتخابی» است.</string>
+    <string name="step_link">۲. هات‌اسپات یا «اشتراک اینترنت USB» روشن باشد</string>
+    <string name="step_link_fail">اینجا را اشتباه رفتی: راه اتصال سیستم قطع است — هات‌اسپات یا USB tethering را روشن کنید.</string>
+    <string name="step_share">۳. اشتراک این اپ روشن باشد</string>
+    <string name="step_share_fail">اینجا را اشتباه رفتی: اشتراک گوشی خاموش است — دکمه شروع اشتراک را بزنید.</string>
+    <string name="step_net">۴. اینترنت گوشی سالم باشد</string>
+    <string name="step_net_fail">اینجا را اشتباه رفتی: اینترنت گوشی قطع است — VPN را قطع کنید یا اتصال داده را بررسی کنید.</string>
+    <string name="step_ip">۵. آدرس قابل‌اتصال داشته باشید</string>
+    <string name="step_ip_fail">اینجا را اشتباه رفتی: آدرس قابل‌اتصالی نیست — هات‌اسپات یا USB را دوباره روشن کنید.</string>
+    <string name="guide_title">راهنمای اتصال</string>
+    <string name="guide_subtitle">یکی از دو راه را انتخاب و مرحله‌به‌مرحله پیش بروید</string>
+    <string name="guide_usb">اتصال با کابل USB</string>
+    <string name="guide_hotspot">اتصال با هات‌اسپات وای‌فای</string>
+    <string name="guide_usb_1">۱. کابل USB را بین گوشی و رایانه وصل کنید.</string>
+    <string name="guide_usb_2">۲. در تنظیمات گوشی «اشتراک اینترنت USB» را روشن کنید.</string>
+    <string name="guide_usb_3">۳. VPN دلخواه را روشن کنید (حالت همه برنامه‌ها).</string>
+    <string name="guide_usb_4">۴. این اپ را باز و اشتراک را روشن بگذارید.</string>
+    <string name="guide_usb_5">۵. IP معمول گوشی: 192.168.42.129</string>
+    <string name="guide_usb_6">۶. در اپ دسک‌تاپ: جستجو → کد ۶ رقمی → اتصال.</string>
+    <string name="guide_hotspot_1">۱. هات‌اسپات گوشی را با رمز WPA2 روشن کنید.</string>
+    <string name="guide_hotspot_2">۲. رایانه را به همان هات‌اسپات وصل کنید.</string>
+    <string name="guide_hotspot_3">۳. VPN دلخواه را روشن کنید (حالت همه برنامه‌ها).</string>
+    <string name="guide_hotspot_4">۴. این اپ را باز و اشتراک را روشن بگذارید.</string>
+    <string name="guide_hotspot_5">۵. IP معمول گوشی: 192.168.43.1</string>
+    <string name="guide_hotspot_6">۶. در اپ دسک‌تاپ: جستجو → کد ۶ رقمی → اتصال.</string>
+    <string name="guide_note">فقط وصل‌کردن کابل کافی نیست؛ حتماً «اشتراک اینترنت USB» روشن شود.</string>
     <string name="stop_sharing">توقف اشتراک</string>
     <string name="start_sharing">شروع اشتراک</string>
     <string name="vpn_all_apps_notice">برای اعمال VPN روی نت شیرشده، حتماً اپ VPN را در حالت «همه برنامه‌ها» قرار دهید.</string>
@@ -80,6 +104,9 @@
     <string name="save_ports">ذخیره پورت‌ها</string>
     <string name="about">درباره</string>
     <string name="about_desc">اشتراک اینترنت گوشی به سیستم با اعمال VPN گوشی. بدون Root و بدون سرور.</string>
+    <string name="link_github">گیت‌هاب</string>
+    <string name="link_linkedin">لینکدین</string>
+    <string name="built_by">ساختهٔ Mohammad Mehdi Sadeghi</string>
 
     <!-- Notifications / service -->
     <string name="notif_vpn_on">VPN فعال</string>
