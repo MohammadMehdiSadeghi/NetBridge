@@ -259,9 +259,9 @@ class HttpProxyServer(
     }
 
     /**
-     * Open the outbound socket. When we know which network carries the tunnel we bind
-     * to it explicitly; otherwise we let Android pick, which is the correct behaviour
-     * for a normal handset VPN and keeps working on ROMs that hide network handles.
+     * Open the outbound socket on the tunnel-carrying network when one is known.
+     * On bind failure we fall back to a plain Socket (Android default route) —
+     * never to a physical WAN, which would bypass an active VPN.
      */
     private fun connectUpstream(host: String, port: Int): Socket? {
         val net = route()
