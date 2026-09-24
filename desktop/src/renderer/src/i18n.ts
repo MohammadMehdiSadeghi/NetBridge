@@ -5,6 +5,7 @@ const fa = {
   tagline: 'اشتراک با VPN',
   tabConnect: 'اتصال',
   tabDevice: 'دستگاه',
+  tabGuide: 'راهنما',
   tabSettings: 'تنظیمات',
   status: 'وضعیت',
   noPhone: 'بدون گوشی',
@@ -90,7 +91,44 @@ const fa = {
   errStartShareFailed: 'روشن کردن اشتراک گوشی ناموفق بود',
   errNoConnectableAddress:
     'گوشی اشتراک را روشن کرده ولی آدرس قابل‌اتصالی ندارد. هات‌اسپات یا USB tethering را روی گوشی روشن کنید.',
-  errScanFailed: 'جستجوی گوشی ناموفق بود'
+  errScanFailed: 'جستجوی گوشی ناموفق بود',
+  checklistTitle: 'چک‌لیست اتصال',
+  checklistSubtitle: 'هر گام قرمز دقیقاً همان جایی است که اشتباه رفتید',
+  stepPhone: '۱. گوشی انتخاب شده باشد',
+  stepPhoneFail: 'اینجا را اشتباه رفتی: هنوز گوشی انتخاب نشده — برگه «دستگاه» → جستجو یا IP دستی.',
+  stepPaired: '۲. با کد ۶ رقمی جفت‌سازی شده باشد',
+  stepPairedFail: 'اینجا را اشتباه رفتی: جفت‌سازی نشده — کد ۶ رقمی گوشی را وارد کنید.',
+  stepVpn: '۳. VPN گوشی روشن باشد',
+  stepVpnFail: 'اینجا را اشتباه رفتی: VPN گوشی روشن نیست — در گوشی VPN را روشن کنید.',
+  stepLink: '۴. راه اتصال (USB/هات‌اسپات) وصل باشد',
+  stepLinkFail: 'اینجا را اشتباه رفتی: راه اتصال قطع است — هات‌اسپات یا USB tethering را روشن کنید.',
+  stepShare: '۵. شیر اشتراک گوشی روشن باشد',
+  stepShareFail: 'اینجا را اشتباه رفتی: اشتراک گوشی خاموش است — دکمه اتصال را بزنید تا روشن شود.',
+  stepConnected: '۶. اتصال و System Proxy روشن باشند',
+  stepConnectedFail: 'اینجا را اشتباه رفتی: هنوز وصل نشده — دکمه بزرگ اتصال را بزنید.',
+  guideTitle: 'راهنمای اتصال',
+  guideSubtitle: 'یکی از دو راه را انتخاب و مرحله‌به‌مرحله پیش بروید',
+  guideUsb: 'اتصال با کابل USB',
+  guideHotspot: 'اتصال با هات‌اسپات وای‌فای',
+  guideUsb1: '۱. کابل USB را بین گوشی و رایانه وصل کنید.',
+  guideUsb2: '۲. در تنظیمات گوشی «اشتراک اینترنت USB» را روشن کنید.',
+  guideUsb3: '۳. VPN دلخواه را روشن کنید (حالت همه برنامه‌ها).',
+  guideUsb4: '۴. اپ گوشی را باز و اشتراک را روشن بگذارید.',
+  guideUsb5: '۵. IP معمول گوشی: 192.168.42.129',
+  guideUsb6: '۶. اینجا: جستجو → کد ۶ رقمی → اتصال.',
+  guideHotspot1: '۱. هات‌اسپات گوشی را با رمز WPA2 روشن کنید.',
+  guideHotspot2: '۲. رایانه را به همان هات‌اسپات وصل کنید.',
+  guideHotspot3: '۳. VPN دلخواه را روشن کنید (حالت همه برنامه‌ها).',
+  guideHotspot4: '۴. اپ گوشی را باز و اشتراک را روشن بگذارید.',
+  guideHotspot5: '۵. IP معمول گوشی: 192.168.43.1',
+  guideHotspot6: '۶. اینجا: جستجو → کد ۶ رقمی → اتصال.',
+  guideNote: 'فقط وصل‌کردن کابل کافی نیست؛ حتماً «اشتراک اینترنت USB» روشن شود.',
+  builtBy: 'ساختهٔ Mohammad Mehdi Sadeghi',
+  linkGithub: 'گیت‌هاب',
+  linkLinkedin: 'لینکدین',
+  githubUrl: 'https://github.com/MohammadMehdiSadeghi',
+  linkedinUrl: 'https://www.linkedin.com/in/mohammad-mehdi-sadeghi',
+  wrongPrefix: 'اینجا را اشتباه رفتی:'
 }
 
 const en: typeof fa = {
@@ -98,6 +136,7 @@ const en: typeof fa = {
   tagline: 'Share with VPN',
   tabConnect: 'Connect',
   tabDevice: 'Device',
+  tabGuide: 'Guide',
   tabSettings: 'Settings',
   status: 'Status',
   noPhone: 'No phone',
@@ -179,7 +218,44 @@ const en: typeof fa = {
   errStartShareFailed: 'Failed to start sharing on the phone',
   errNoConnectableAddress:
     'Sharing is on but the phone has no connectable address. Turn on hotspot or USB tethering.',
-  errScanFailed: 'Phone scan failed'
+  errScanFailed: 'Phone scan failed',
+  checklistTitle: 'Connection checklist',
+  checklistSubtitle: 'Each red step is exactly where you went wrong',
+  stepPhone: '1. A phone is selected',
+  stepPhoneFail: 'You went wrong here: no phone selected — Device tab → scan or manual IP.',
+  stepPaired: '2. Paired with the 6-digit code',
+  stepPairedFail: 'You went wrong here: not paired — enter the phone’s 6-digit code.',
+  stepVpn: '3. Phone VPN is on',
+  stepVpnFail: 'You went wrong here: phone VPN is off — turn the VPN on in the phone app.',
+  stepLink: '4. USB / hotspot link is up',
+  stepLinkFail: 'You went wrong here: system link is down — turn on hotspot or USB tethering.',
+  stepShare: '5. Phone sharing is on',
+  stepShareFail: 'You went wrong here: phone sharing is off — press Connect to turn it on.',
+  stepConnected: '6. Connected and System Proxy on',
+  stepConnectedFail: 'You went wrong here: not connected yet — press the big Connect button.',
+  guideTitle: 'Connection guide',
+  guideSubtitle: 'Pick one of the two paths and follow the steps',
+  guideUsb: 'USB cable',
+  guideHotspot: 'Wi‑Fi hotspot',
+  guideUsb1: '1. Plug the USB cable between phone and PC.',
+  guideUsb2: '2. Turn on USB tethering in phone settings.',
+  guideUsb3: '3. Turn on your VPN (All-apps mode).',
+  guideUsb4: '4. Keep the phone app open with sharing on.',
+  guideUsb5: '5. Typical phone IP: 192.168.42.129',
+  guideUsb6: '6. Here: scan → 6-digit code → Connect.',
+  guideHotspot1: '1. Turn on the phone hotspot (WPA2 password).',
+  guideHotspot2: '2. Join that hotspot from the PC.',
+  guideHotspot3: '3. Turn on your VPN (All-apps mode).',
+  guideHotspot4: '4. Keep the phone app open with sharing on.',
+  guideHotspot5: '5. Typical phone IP: 192.168.43.1',
+  guideHotspot6: '6. Here: scan → 6-digit code → Connect.',
+  guideNote: 'Plugging the cable alone is not enough — USB tethering must be ON.',
+  builtBy: 'Built by Mohammad Mehdi Sadeghi',
+  linkGithub: 'GitHub',
+  linkLinkedin: 'LinkedIn',
+  githubUrl: 'https://github.com/MohammadMehdiSadeghi',
+  linkedinUrl: 'https://www.linkedin.com/in/mohammad-mehdi-sadeghi',
+  wrongPrefix: 'You went wrong here:'
 }
 
 function detect(): Lang {
@@ -243,23 +319,24 @@ export function errorText(error: string): string {
   const detail = sep === -1 ? '' : error.slice(sep + 2)
   const d = t()
   const withDetail = (base: string): string => (detail ? `${base}: ${detail}` : base)
+  const wrong = (base: string): string => `${d.wrongPrefix ?? 'اینجا را اشتباه رفتی:'} ${base}`
   switch (code) {
     case 'select_phone_first':
-      return d.errSelectPhone
+      return wrong(d.errSelectPhone)
     case 'pairing_failed':
-      return withDetail(d.errPairingFailed)
+      return wrong(withDetail(d.errPairingFailed))
     case 'phone_not_found':
-      return d.errPhoneNotFound
+      return wrong(d.errPhoneNotFound)
     case 'pair_first':
-      return d.errPairFirst
+      return wrong(d.errPairFirst)
     case 'phone_unreachable':
-      return withDetail(d.errPhoneUnreachable)
+      return wrong(withDetail(d.errPhoneUnreachable))
     case 'start_share_failed':
-      return withDetail(d.errStartShareFailed)
+      return wrong(withDetail(d.errStartShareFailed))
     case 'no_connectable_address':
-      return d.errNoConnectableAddress
+      return wrong(d.errNoConnectableAddress)
     case 'scan_failed':
-      return withDetail(d.errScanFailed)
+      return wrong(withDetail(d.errScanFailed))
     default:
       return error
   }
