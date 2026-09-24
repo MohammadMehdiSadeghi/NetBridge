@@ -18,8 +18,8 @@ module.exports = {
       },
       fontFamily: {
         sans: [
-          'Segoe UI',
           'Vazirmatn',
+          'Segoe UI',
           'Tahoma',
           'system-ui',
           '-apple-system',

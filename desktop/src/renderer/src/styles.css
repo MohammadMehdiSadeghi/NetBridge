@@ -2,9 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Bundled with the app so Persian renders the same on every machine,
+   instead of falling back to whatever font Windows happens to have. */
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Vazirmatn-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/Vazirmatn-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/Vazirmatn-SemiBold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Vazirmatn-Bold.woff2') format('woff2');
+}
 
 :root {
   color-scheme: dark;
@@ -20,7 +47,7 @@ body {
   margin: 0;
   background: #0b0f14;
   color: #e8eef7;
-  font-family: 'Segoe UI', Vazirmatn, Tahoma, system-ui, sans-serif;
+  font-family: Vazirmatn, 'Segoe UI', Tahoma, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   user-select: none;
 }
