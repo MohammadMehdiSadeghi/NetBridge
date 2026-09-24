@@ -7,6 +7,7 @@
     <!-- Navigation -->
     <string name="tab_home">Home</string>
     <string name="tab_share">Sharing</string>
+    <string name="tab_guide">Guide</string>
     <string name="tab_settings">Settings</string>
 
     <!-- Common -->
@@ -57,13 +58,36 @@
     <string name="hotspot_usb_hint">Turn on hotspot or USB tethering.</string>
     <string name="no_clients_yet">No system has connected yet. If the PC is connected but this is empty, it cannot find this phone — check the hotspot tab for the phone address.</string>
     <string name="connections_count">%d connections</string>
-    <string name="connect_steps">PC connection steps</string>
-    <string name="step_1">1. Turn on your VPN app on the phone (All-apps mode).</string>
-    <string name="step_2">2. Turn on the hotspot, or plug USB and enable USB tethering.</string>
-    <string name="step_3">3. Keep this app running (sharing on).</string>
-    <string name="step_4">4. Connect the PC to the hotspot — or for USB, Windows detects the cable network.</string>
-    <string name="step_5">5. Open the desktop app and enter this code.</string>
-    <string name="step_6">6. Press Connect on the desktop — done.</string>
+    <string name="connect_steps">Connection checklist</string>
+    <string name="wrong_step_prefix">You went wrong here:</string>
+    <string name="step_ok">OK</string>
+    <string name="step_vpn">1. Phone VPN is on (All-apps mode)</string>
+    <string name="step_vpn_fail">You went wrong here: phone VPN is off or in selected-apps mode.</string>
+    <string name="step_link">2. Hotspot or USB tethering is on</string>
+    <string name="step_link_fail">You went wrong here: system link is down — turn on hotspot or USB tethering.</string>
+    <string name="step_share">3. Sharing in this app is on</string>
+    <string name="step_share_fail">You went wrong here: phone sharing is off — press Start sharing.</string>
+    <string name="step_net">4. Phone internet is up</string>
+    <string name="step_net_fail">You went wrong here: phone has no internet — turn the VPN off or check mobile data.</string>
+    <string name="step_ip">5. A connectable address exists</string>
+    <string name="step_ip_fail">You went wrong here: no connectable address — toggle hotspot/USB again.</string>
+    <string name="guide_title">Connection guide</string>
+    <string name="guide_subtitle">Pick one of the two paths and follow the steps</string>
+    <string name="guide_usb">USB cable</string>
+    <string name="guide_hotspot">Wi‑Fi hotspot</string>
+    <string name="guide_usb_1">1. Plug the USB cable between phone and PC.</string>
+    <string name="guide_usb_2">2. Turn on USB tethering in phone settings.</string>
+    <string name="guide_usb_3">3. Turn on your VPN (All-apps mode).</string>
+    <string name="guide_usb_4">4. Keep this app open with sharing on.</string>
+    <string name="guide_usb_5">5. Typical phone IP: 192.168.42.129</string>
+    <string name="guide_usb_6">6. Desktop app: scan → 6-digit code → Connect.</string>
+    <string name="guide_hotspot_1">1. Turn on the phone hotspot (WPA2 password).</string>
+    <string name="guide_hotspot_2">2. Join that hotspot from the PC.</string>
+    <string name="guide_hotspot_3">3. Turn on your VPN (All-apps mode).</string>
+    <string name="guide_hotspot_4">4. Keep this app open with sharing on.</string>
+    <string name="guide_hotspot_5">5. Typical phone IP: 192.168.43.1</string>
+    <string name="guide_hotspot_6">6. Desktop app: scan → 6-digit code → Connect.</string>
+    <string name="guide_note">Plugging the cable alone is not enough — USB tethering must be ON.</string>
     <string name="stop_sharing">Stop sharing</string>
     <string name="start_sharing">Start sharing</string>
     <string name="vpn_all_apps_notice">To apply the VPN to shared traffic, keep the VPN app in “All apps” mode.</string>
@@ -80,6 +104,9 @@
     <string name="save_ports">Save ports</string>
     <string name="about">About</string>
     <string name="about_desc">Share phone internet with the PC while applying the phone\'s VPN. No root, no server.</string>
+    <string name="link_github">GitHub</string>
+    <string name="link_linkedin">LinkedIn</string>
+    <string name="built_by">Built by Mohammad Mehdi Sadeghi</string>
 
     <!-- Notifications / service -->
     <string name="notif_vpn_on">VPN on</string>
