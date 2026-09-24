@@ -18,6 +18,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Password
@@ -323,7 +325,7 @@ fun ShareScreen() {
 
         Spacer(Modifier.height(16.dp))
 
-        // Steps
+        // Live checklist — names the exact step that is wrong.
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -334,20 +336,61 @@ fun ShareScreen() {
                 Text(stringResource(R.string.connect_steps), color = TextPrimary, style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(10.dp))
                 val steps = listOf(
-                    stringResource(R.string.step_1),
-                    stringResource(R.string.step_2),
-                    stringResource(R.string.step_3),
-                    stringResource(R.string.step_4),
-                    stringResource(R.string.step_5),
-                    stringResource(R.string.step_6)
-                )
-                steps.forEach { s ->
-                    Text(
-                        text = s,
-                        color = TextSecondary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(vertical = 4.dp)
+                    Triple(
+                        stringResource(R.string.step_vpn),
+                        state.vpnActive,
+                        stringResource(R.string.step_vpn_fail)
+                    ),
+                    Triple(
+                        stringResource(R.string.step_link),
+                        state.transport != Transport.NONE,
+                        stringResource(R.string.step_link_fail)
+                    ),
+                    Triple(
+                        stringResource(R.string.step_share),
+                        state.sharing,
+                        stringResource(R.string.step_share_fail)
+                    ),
+                    Triple(
+                        stringResource(R.string.step_net),
+                        state.internetReachable,
+                        stringResource(R.string.step_net_fail)
+                    ),
+                    Triple(
+                        stringResource(R.string.step_ip),
+                        state.ips.isNotEmpty(),
+                        stringResource(R.string.step_ip_fail)
                     )
+                )
+                steps.forEach { (label, ok, fail) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (ok) Icons.Default.Check else Icons.Default.Close,
+                            contentDescription = null,
+                            tint = if (ok) Success else Danger,
+                            modifier = Modifier.width(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = label,
+                                color = if (ok) TextPrimary else Warning,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            if (!ok) {
+                                Text(
+                                    text = fail,
+                                    color = Danger,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
