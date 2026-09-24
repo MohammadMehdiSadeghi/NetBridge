@@ -59,6 +59,8 @@ object ShareManager {
     private var httpServer: HttpProxyServer? = null
     private var socksServer: Socks5Server? = null
     private var controlServer: ControlApiServer? = null
+    /** Consecutive auto-rebinds of the control API; reset on every normal start. */
+    private var controlRestarts = 0
     private var monitorJob: Job? = null
     private var nsdAdvertiser: NsdHolder? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
@@ -156,8 +158,16 @@ object ShareManager {
         return null
     }
 
-    fun startControl() {
+    fun startControl(fromRestart: Boolean = false) {
         if (_state.value.controlAlive) return
+        if (fromRestart) {
+            // The accept loop only dies on its own if something is genuinely wrong;
+            // three attempts (1.5s apart) is enough to survive a port being released.
+            if (controlRestarts >= 3) return
+            controlRestarts += 1
+        } else {
+            controlRestarts = 0
+        }
         val ctx = appContext ?: return
         val server = ControlApiServer(
             port = store.controlPort,
@@ -177,7 +187,14 @@ object ShareManager {
                     }
                 }
             },
-            appContext = ctx
+            appContext = ctx,
+            onDied = {
+                _state.value = _state.value.copy(controlAlive = false)
+                scope.launch {
+                    kotlinx.coroutines.delay(500)
+                    startControl(fromRestart = true)
+                }
+            }
         )
         controlServer = server
         val bound = server.start()

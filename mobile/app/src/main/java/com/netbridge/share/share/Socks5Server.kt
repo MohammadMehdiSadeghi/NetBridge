@@ -11,7 +11,7 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -37,6 +37,7 @@ class Socks5Server(
     private val running = AtomicBoolean(false)
     private var serverSocket: ServerSocket? = null
     private var scope: CoroutineScope? = null
+    private var dispatcher: ExecutorCoroutineDispatcher? = null
     private var idSeq = 0L
 
     @Volatile
@@ -46,26 +47,46 @@ class Socks5Server(
 
     fun start() {
         if (!running.compareAndSet(false, true)) return
-        val sc = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        // Its own pool — see ServerThreads. Sharing Dispatchers.IO with the proxy
+        // tunnels is what let a busy session stall every accept loop in the app.
+        val disp = ServerThreads.pool("socks")
+        dispatcher = disp
+        val sc = CoroutineScope(SupervisorJob() + disp)
         scope = sc
         sc.launch {
+            var ss: ServerSocket? = null
             try {
-                val ss = ServerSocket()
-                ss.reuseAddress = true
-                ss.bind(InetSocketAddress("0.0.0.0", port), 128)
-                serverSocket = ss
+                val socket = ServerSocket()
+                socket.reuseAddress = true
+                socket.bind(InetSocketAddress("0.0.0.0", port), 128)
+                ss = socket
+                serverSocket = socket
                 while (running.get()) {
-                    val socket = try {
-                        ss.accept()
+                    val client = try {
+                        socket.accept()
                     } catch (_: Exception) {
                         break
                     }
                     val id = synchronized(this) { ++idSeq }
-                    launch { handle(socket, id) }
+                    launch { handle(client, id) }
                 }
             } catch (e: Exception) {
                 if (running.get()) {
                     onEvent(Event.Error("SOCKS5: ${e.message ?: "error"}"))
+                }
+            } finally {
+                // stop() clears `running` first. A set here means the loop died while
+                // we still believed we were listening: close the socket so callers get
+                // a refusal instead of a silent backlog of dropped SYNs.
+                if (running.getAndSet(false)) {
+                    try {
+                        ss?.close()
+                    } catch (_: Exception) {
+                    }
+                    serverSocket = null
+                    if (ss != null) {
+                        onEvent(Event.Error("SOCKS5: accept loop stopped :$port"))
+                    }
                 }
             }
         }
@@ -80,6 +101,8 @@ class Socks5Server(
         serverSocket = null
         scope?.cancel()
         scope = null
+        dispatcher?.close()
+        dispatcher = null
     }
 
     private fun route(): Network? {

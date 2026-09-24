@@ -8,7 +8,7 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -20,13 +20,16 @@ class ControlApiServer(
     private val verifyPair: (code: String) -> String?,
     private val readToken: () -> String,
     private val onCommand: (Command) -> Any?,
-    private val appContext: Context
+    private val appContext: Context,
+    /** Called if the accept loop dies on its own, so the owner can rebind. */
+    private val onDied: (() -> Unit)? = null
 ) {
     enum class Command { START, STOP, RECYCLE }
 
     private val running = AtomicBoolean(false)
     private var serverSocket: ServerSocket? = null
     private var scope: CoroutineScope? = null
+    private var dispatcher: ExecutorCoroutineDispatcher? = null
 
     /** Returns true only when the control port is actually listening. */
     fun start(): Boolean {
@@ -36,7 +39,11 @@ class ControlApiServer(
             ss.reuseAddress = true
             ss.bind(InetSocketAddress("0.0.0.0", port), 32)
             serverSocket = ss
-            val sc = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            // Its own pool: the control API must keep accepting even when the proxy
+            // servers are busy enough to exhaust the shared IO pool.
+            val disp = ServerThreads.pool("control")
+            dispatcher = disp
+            val sc = CoroutineScope(SupervisorJob() + disp)
             scope = sc
             sc.launch {
                 while (running.get()) {
@@ -47,7 +54,18 @@ class ControlApiServer(
                     }
                     launch { handle(socket) }
                 }
-                running.set(false)
+                // stop() clears `running` first; a set here means accept() failed by
+                // itself. Leaving the socket bound with nobody accepting queues SYNs
+                // until the backlog is full and then drops them — every caller sees
+                // "no answer" instead of a refusal. Close it and let the owner rebind.
+                if (running.getAndSet(false)) {
+                    try {
+                        ss.close()
+                    } catch (_: Exception) {
+                    }
+                    serverSocket = null
+                    onDied?.invoke()
+                }
             }
             true
         } catch (_: Exception) {
@@ -66,6 +84,8 @@ class ControlApiServer(
         serverSocket = null
         scope?.cancel()
         scope = null
+        dispatcher?.close()
+        dispatcher = null
     }
 
     private fun handle(socket: Socket) {

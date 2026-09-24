@@ -13,7 +13,7 @@ import java.net.Socket
 import java.net.URI
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -52,6 +52,7 @@ class HttpProxyServer(
     private val running = AtomicBoolean(false)
     private var serverSocket: ServerSocket? = null
     private var scope: CoroutineScope? = null
+    private var dispatcher: ExecutorCoroutineDispatcher? = null
     private var idSeq = 0L
 
     /** Resolved route; refreshed lazily so a mid-session VPN toggle is picked up. */
@@ -68,7 +69,11 @@ class HttpProxyServer(
             ss.reuseAddress = true
             ss.bind(InetSocketAddress("0.0.0.0", port), 128)
             serverSocket = ss
-            val sc = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            // See ServerThreads: a tunnel holds a thread for its whole life, so the
+            // proxy must never share a pool with the control API's accept loop.
+            val disp = ServerThreads.pool("http")
+            dispatcher = disp
+            val sc = CoroutineScope(SupervisorJob() + disp)
             scope = sc
             sc.launch {
                 while (running.get()) {
@@ -80,7 +85,16 @@ class HttpProxyServer(
                     val id = synchronized(this) { ++idSeq }
                     launch { handle(socket, id) }
                 }
-                running.set(false)
+                if (running.getAndSet(false)) {
+                    // Accept loop died: drop the socket instead of leaving it bound
+                    // with nobody accepting (a black hole callers report as timeout).
+                    try {
+                        ss.close()
+                    } catch (_: Exception) {
+                    }
+                    serverSocket = null
+                    onEvent(Event.Error("HTTP Proxy: accept loop stopped :$port"))
+                }
             }
             true
         } catch (e: Exception) {
@@ -100,6 +114,8 @@ class HttpProxyServer(
         serverSocket = null
         scope?.cancel()
         scope = null
+        dispatcher?.close()
+        dispatcher = null
     }
 
     private fun route(): Network? {
