@@ -208,8 +208,8 @@ curl -H "Authorization: Bearer <TOKEN>" http://<PHONE_IP>:7777/api/v1/clients
   محتمل‌ترین جا برای خطای نگارشی: `ShareManager.kt` و `Interfaces.kt`.
 - **حالت واقعی bind به شبکه VPN** (`Network.socketFactory`) روی سخت‌افزار واقعی
   تست نشده. اگر روی گوشی شما رفتار عجیبی داشت، `preferredRoute()` در
-  `Interfaces.kt` اولین جایی است که باید نگاه کنید — می‌توانید موقتاً `null`
-  برگردانید تا رفتار «اندروید خودش تصمیم بگیرد» را ببینید.
+  `Interfaces.kt` اولین جایی است که باید نگاه کنید. اولویت باید همیشه VPN باشد؛
+  bind به WAN فیزیکی حین روشن‌بودن VPN تونل را دور می‌زند.
 - **رام‌های خاص** که رابط تتر را به `NetworkInterface` نشان نمی‌دهند، پوشش
   داده نشده‌اند (resolver بومی `GetClients` عمداً انجام نشده).
 - **ترافیک UDP** (بعضی بازی‌ها) پشتیبانی نمی‌شود — System Proxy فقط TCP می‌دهد.
