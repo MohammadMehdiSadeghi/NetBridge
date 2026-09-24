@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import { BrowserWindow, ipcMain, shell } from 'electron'
 import type { Store } from './store'
 import type { ProxyChain } from './proxyChain'
 import { discoverPhones, type DiscoveredPhone } from './discovery'
@@ -413,5 +413,14 @@ export class AppController {
     )
     ipcMain.handle('netbridge:forgetPairing', () => this.forgetPairing())
     ipcMain.handle('netbridge:refresh', () => this.refreshPhone())
+    ipcMain.handle('netbridge:openExternal', (_e, url: string) => {
+      const allowed = new Set([
+        'https://github.com/MohammadMehdiSadeghi',
+        'https://www.linkedin.com/in/mohammad-mehdi-sadeghi'
+      ])
+      if (allowed.has(url)) {
+        void shell.openExternal(url)
+      }
+    })
   }
 }
