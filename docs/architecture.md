@@ -1,119 +1,109 @@
-# معماری NetBridge
+# NetBridge architecture
 
-**NetBridge یک VPN نیست.** NetBridge مثل PdaNet عمل می‌کند: اینترنت گوشی را با هات‌اسپات یا کابل USB به سیستم شیر می‌دهد — با این تفاوت که **VPN فعالِ روی گوشی را هم روی ترافیک سیستم لحاظ می‌کند**.
+**NetBridge is not a VPN.** NetBridge works like PdaNet: it shares the phone's internet to the PC over hotspot or USB — except it **also applies the VPN active on the phone** to the PC's traffic.
 
-## مشکلی که NetBridge حل می‌کند
+## The problem NetBridge solves
 
-در حالت عادی:
-
-```
-گوشی: VPN روشن ← ترافیک خودِ گوشی از VPN رد می‌شود
-هات‌اسپات: بسته‌های PC ← فوروارد مستقیم ← اینترنت   ❌ بدون VPN
-```
-
-با NetBridge:
+Default behavior:
 
 ```
-برنامه PC → System Proxy → پروکسی گوشی → خروجیِ پروکسی از VPN گوشی → اینترنت   ✅
+Phone: VPN on ← phone's own traffic goes through VPN
+Hotspot: PC packets ← direct forward ← internet   ❌ no VPN
 ```
 
-## چطور کار می‌کند؟ (بدون Root)
-
-1. کاربر هر VPN‌ای که دوست دارد روی گوشی روشن می‌کند (ترافیک همه برنامه‌های گوشی وارد تونل VPN می‌شود).
-2. NetBridge روی گوشی یک **HTTP Proxy** و **SOCKS5** روی `0.0.0.0` بالا می‌آورد.
-3. وقتی PC به این پروکسی وصل می‌شود، پروکسی مقصد را از طرف PC باز می‌کند.
-4. اتصالِ خروجیِ پروکسی، ترافیکِ خودِ گوشی است → از VPN موجود عبور می‌کند → بسته به مقصد می‌رسد.
-
-یعنی VPN سمت گوشی روی «نت شیرشده» هم اعمال می‌شود، بی‌نیاز از Root یا تغییر روتینگ هسته.
-
-## اجزا
+With NetBridge:
 
 ```
-┌────────────────── LAN: هات‌اسپات / USB Tethering ──────────────────┐
+PC app → System Proxy → phone proxy → proxy exit uses phone VPN → internet   ✅
+```
+
+## How it works (no root)
+
+1. The user turns on any VPN they like on the phone (all phone app traffic enters the VPN tunnel).
+2. NetBridge on the phone starts an **HTTP Proxy** and **SOCKS5** on `0.0.0.0`.
+3. When the PC connects to this proxy, the proxy opens destinations on behalf of the PC.
+4. The proxy's outbound connection is the phone's own traffic → passes through the existing VPN → reaches the destination.
+
+So the phone-side VPN also applies to the "shared link", with no root and no kernel routing changes.
+
+## Components
+
+```
+┌────────────────── LAN: hotspot / USB tethering ──────────────────┐
 │                                                                   │
 │  ┌──────────────────┐      HTTP :8080      ┌───────────────────┐  │
-│  │  اپ دسک‌تاپ      │ ───────────────────► │   اپ اندروید      │  │
-│  │  (Windows)       │      API  :7777      │   «NetBridge»          │  │
+│  │  Desktop app     │ ───────────────────► │   Android app     │  │
+│  │  (Windows)       │      API  :7777      │   "NetBridge"     │  │
 │  │                  │ ◄──────────────────► │                   │  │
-│  │ System Proxy     │     جفت‌سازی/وضعیت   │  پروکسی HTTP/SOCKS│  │
+│  │ System Proxy     │   pairing / status   │  HTTP/SOCKS proxy │  │
 │  │ 127.0.0.1:18080  │                      │        │          │  │
 │  └──────────────────┘                      │        ▼          │  │
-│                                            │  VPN گوشی (هر     │  │
-│                                            │  اپ VPN دلخواه)   │  │
+│                                            │  Phone VPN (any   │  │
+│                                            │  VPN app)         │  │
 │                                            └────────┬──────────┘  │
 └─────────────────────────────────────────────────────┼─────────────┘
                                                       │
                                                  Internet
 ```
 
-### ۱. اپ اندروید (`mobile/`)
+### 1. Android app (`mobile/`)
 
-- Kotlin + Jetpack Compose، رابط فارسی RTL
-- سرور HTTP Proxy و SOCKS5 روی شبکه محلی
-- **تشخیص شبکه بر پایه `ConnectivityManager.allNetworks`**، نه `activeNetwork`
-- API کنترل LAN برای دسک‌تاپ (جفت‌سازی با کد ۶ رقمی)
-- کشف خودکار با mDNS/NSD
-- Foreground Service برای اجرا ماندن در پس‌زمینه
-- آمار اتصال‌ها و مصرف بایت، به تفکیک هر کلاینت (`ClientRegistry`)
+- Kotlin + Jetpack Compose, Persian RTL UI
+- HTTP Proxy and SOCKS5 servers on the LAN
+- **Network detection based on `ConnectivityManager.allNetworks`**, not `activeNetwork`
+- LAN control API for desktop (pairing with a 6-digit code)
+- mDNS/NSD auto-discovery
+- Foreground service to keep running in background
+- Per-client connection and byte stats (`ClientRegistry`)
 
-#### چرا `activeNetwork` کافی نیست
+#### Why `activeNetwork` is not enough
 
-اندروید فقط **یک** شبکه را active علامت می‌زند. لحظه‌ای که USB tethering روشن شود،
-شبکه active همان رابط تتر می‌شود و بررسی `activeNetwork.hasTransport(VPN)` دیگر
-VPN را نمی‌بیند — حتی اگر VPN واقعاً روشن باشد. این دقیقاً همان حالتی است که توضیح
-می‌دهد چرا «در حالت عادی سیستم از VPN استفاده نمی‌کند».
+Android marks only **one** network active. The moment USB tethering turns on, that tether interface becomes the active network and `activeNetwork.hasTransport(VPN)` no longer sees the VPN — even if the VPN is really on. This is exactly why "in default mode the system does not use the VPN".
 
-بنابراین `Interfaces.enumerate()` همه شبکه‌ها را می‌گردد و سه چیز را جدا تشخیص می‌دهد:
+So `Interfaces.enumerate()` walks all networks and separates three things:
 
-- کدام شبکه ترنسپورت VPN دارد → `vpnNetworks`
-- کدام شبکه ترنسپورت زیرین دارد (cellular / wifi / ethernet) → `wanNetworks`
-- آیا شبکه VPN خودش لایه زیرین را هم دارد (فقط برای تشخیص) → `vpnIsUplink`
+- Which networks have VPN transport → `vpnNetworks`
+- Which networks have underlay transport (cellular / wifi / ethernet) → `wanNetworks`
+- Whether the VPN network also carries underlay (for detection only) → `vpnIsUplink`
 
-این دو حالت باید از هم تفکیک شوند، چون درمانشان کاملاً متفاوت است:
+These two states must be told apart, because the fix is completely different:
 
-| وضعیت | معنا | کار کاربر |
-|-------|------|-----------|
-| `internetReachable = false` | تونل بالا آمده ولی زیربنایش قطع است | **VPN را قطع کند** |
-| `vpnActive = false` | شیر کار می‌کند ولی محافظت‌نشده | **VPN را روشن کند** |
+| State | Meaning | User action |
+|-------|---------|-------------|
+| `internetReachable = false` | Tunnel is up but underlay is down | **Turn VPN off** |
+| `vpnActive = false` | Sharing works but is unprotected | **Turn VPN on** |
 
-#### مسیر خروجی پروکسی
+#### Proxy egress path
 
-سوکت‌های خروجی پروکسی با `Network.socketFactory` به بهترین مسیر bind می‌شوند:
+Proxy outbound sockets bind with `Network.socketFactory` to the best route:
 
-1. **هر وقت شبکه VPN وجود دارد → فقط VPN.** bind صریح به WAN فیزیکی حین روشن‌بودن VPN
-   باعث بای‌پس تونل می‌شود (باگ قبلی NetBridge).
-2. بدون VPN → یک شبکه WAN تأییدشده (اشتراک عادی).
-3. اگر هیچ‌کدام → `null`، یعنی اندروید خودش تصمیم بگیرد.
+1. **Whenever a VPN network exists → VPN only.** Explicit bind to physical WAN while VPN is up bypasses the tunnel (the old NetBridge bug).
+2. Without VPN → a validated WAN network (normal sharing).
+3. If neither → `null`, let Android decide.
 
-منبع در `Interfaces.preferredRoute()`. خطا در bind هرگز درخواست را رد نمی‌کند؛ به
-مسیر پیش‌فرض (بدون VPN) برمی‌گردد. نتیجه با کش ۵ ثانیه‌ای تازه می‌شود تا خاموش/روشن‌کردن VPN
-وسط کار هم گرفته شود.
+Source: `Interfaces.preferredRoute()`. A bind failure never rejects the request; it falls back to the default (no-VPN) route. The result is cached for 5 seconds so toggling VPN mid-session is picked up.
 
-### ۲. اپ دسک‌تاپ (`desktop/`)
+### 2. Desktop app (`desktop/`)
 
-- Electron + React + TypeScript + Tailwind (تم تیره، RTL)
-- کشف خودکار گوشی یا IP دستی
-- جفت‌سازی با کد گوشی → توکن دائمی
-- زنجیره پروکسی محلی با شمارش ترافیک
-- روشن/خاموش کردن System Proxy ویندوز (بدون Admin)
-- دکمه اتصال تکی: شیر اشتراک گوشی + پروکسی سیستم با هم
+- Electron + React + TypeScript + Tailwind (dark theme, RTL)
+- Phone auto-discovery or manual IP
+- Pairing with phone code → persistent token
+- Local proxy chain with traffic counters
+- Windows System Proxy on/off (no Admin)
+- Single connect button: phone share + system proxy together
 
-#### ترتیب اتصال و چرا مهم است
+#### Connect order and why it matters
 
-`connect()` اول پروکسی محلی را بالا می‌آورد، بعد System Proxy را ست می‌کند و فقط
-بعدش شیر گوشی را روشن می‌کند. هر مسیر خطا هم System Proxy را برمی‌گرداند.
+`connect()` starts the local proxy first, then sets System Proxy, and only after that turns on phone sharing. Every error path also restores System Proxy.
 
-اگر ترتیب برعکس بود — اول System Proxy ست شود و بعد وصل‌شدن به گوشی شکست بخورد —
-ویندوز به پورتی اشاره می‌کرد که کسی گوش نمی‌داد و کاربر «بدون اینترنت» می‌ماند
-بدون اینکه بفهمد چرا. این همان دسته باگی است که کاربر را مجبور می‌کند اپ را بکشد
-و پروکسی ویندوز را دستی خاموش کند.
+If the order were reversed — System Proxy set first, then connecting to the phone fails — Windows would point at a port nobody is listening on and the user would be left "without internet" without knowing why. This is the class of bugs that forces users to kill the app and manually disable Windows proxy.
 
-### ۳. چرا نه VPN سرور؟
+### 3. Why not a VPN server?
 
-نیاز شما این است: VPN خودتان روی گوشی فعال باشد و روی نت شیرشده هم اعمال شود. NetBridge فقط **پلِ پروکسی** بین سیستم و همان VPN است — مثل PdaNet، اما محصول شما.
+Your need: your own VPN stays on the phone and also applies to the shared link. NetBridge is only the **proxy bridge** between PC and that VPN — like PdaNet, but your product.
 
-## محدودیت‌های حالت پروکسی (مثل PdaNet)
+## Proxy mode limitations (same as PdaNet)
 
-- مرورگرها و بیشتر برنامه‌های ویندوز که System Proxy را رعایت می‌کنند: ✅
-- ترافیک خام UDP (بعضی بازی‌ها، VoIP): ❌ (نیاز به TUN سیستم‌سطح در نسخه بعد)
-- اپ VPN در حالت «برنامه‌های انتخابی» ممکن است خروجی پروکسی را از تونل خارج کند → در اپ VPN حالت «همه برنامه‌ها» را انتخاب کنید.
+- Browsers and most Windows apps that honor System Proxy: ✅
+- Raw UDP traffic (some games, VoIP): ❌ (needs system-level TUN in a later version)
+- VPN app in "selected apps" mode may exclude proxy output from the tunnel → choose "All apps" in the VPN app.
