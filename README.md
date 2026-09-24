@@ -41,32 +41,43 @@ NetBridge بین سیستم و گوشی یک **پل پروکسی** می‌ساز
 
 ## شروع سریع
 
-### اندروید
+### اندروید — دانلود APK
 
-**روش ۱ — ساخت در ابر (بدون نصب چیزی):**
+فایل نصبی آماده روی **ریپو** است (بدون نیاز به ساخت):
 
-ریپو را روی GitHub بسازید؛ workflow زیر خودکار APK می‌سازد و در **Actions → Artifacts** آپلود می‌کند:
-
-- `.github/workflows/android.yml` → `NetBridge-debug` و `NetBridge-release`
-- `.github/workflows/desktop.yml` → نصب‌کننده ویندوز
-- `.github/workflows/test.yml` → تست‌ها
-
-**روش ۲ — محلی:**
-
-`mobile/` را در Android Studio باز کنید → **Build APK(s)**
-
-### ویندوز
-
-```bash
-cd desktop
-npm install
-npm run dev
+```
+https://github.com/MohammadMehdiSadeghi/NetBridge/raw/main/NetBridge.apk
 ```
 
-ساخت نصب‌کننده:
+یا از صفحهٔ اصلی ریپو → فایل `NetBridge.apk` → **Download**
+
+> هر بار آپدیت، همین فایل جایگزین می‌شود؛ لینک ثابت می‌ماند.
+
+**ساخت از منبع (اختیاری — نیازمند JDK 17 + Android Studio):**
 
 ```bash
-npm run dist
+cd mobile
+./gradlew assembleDebug      # لینوکس/مک
+gradlew.bat assembleDebug    # ویندوز
+```
+
+### ویندوز — ساخت با ترمینال
+
+فایل نصبی روی ریپو نیست؛ خودتان می‌سازید (پیش‌نیاز: [Node.js 20+](https://nodejs.org)):
+
+```bash
+git clone https://github.com/MohammadMehdiSadeghi/NetBridge.git
+cd NetBridge
+npm install --prefix desktop
+npm run desktop:dist
+```
+
+خروجی: `desktop/release/*.exe`
+
+اجرای توسعه (بدون ساخت installer):
+
+```bash
+npm run desktop:dev
 ```
 
 ### اتصال
