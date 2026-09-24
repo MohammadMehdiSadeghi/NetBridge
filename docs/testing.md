@@ -1,67 +1,63 @@
-# راهنمای تست NetBridge
+# NetBridge testing guide
 
-این سند می‌گوید چه چیزی را می‌شود همین‌جا تست کرد، چه چیزی را نه، و برای تست واقعی
-روی گوشی دقیقاً چه کاری باید انجام داد.
+This document says what can be tested here, what cannot, and exactly what to do for a real on-phone test.
 
 ---
 
-## ۱. تست بدون گوشی (همین حالا کار می‌کند)
+## 1. Test without a phone (works right now)
 
 ```bash
 node tools/test.mjs
 ```
 
-شش مرحله را پشت سر هم اجرا می‌کند:
+Six stages run in sequence:
 
-| مرحله | چه چیزی را ثابت می‌کند |
-|-------|----------------------|
-| typecheck ×۲ | کل کد تایپ‌سیف است — دسته بزرگی از باگ‌ها همین‌جا گرفته می‌شود |
-| build | باندل اپ ساخته می‌شود |
-| کامپایل ProxyChain | کلاس واقعی اپ برای تست آماده می‌شود |
-| smoke test | **مسیر ترافیک واقعی** بدون گوشی |
-| contract test | قرارداد Kotlin ↔ TypeScript (۳۸ بررسی) |
+| Stage | What it proves |
+|-------|----------------|
+| typecheck ×2 | All code is type-safe — a large class of bugs is caught here |
+| build | App bundle builds |
+| Compile ProxyChain | Real app class prepared for testing |
+| smoke test | **Real traffic path** without a phone |
+| contract test | Kotlin ↔ TypeScript contract (38 checks) |
 
-### smoke test دقیقاً چه کار می‌کند؟
+### What the smoke test actually does
 
-یک «گوشی قلابی» می‌سازد: یک HTTP proxy روی `127.0.0.1:18080` و یک سرور بالادست،
-بعد **کلاس واقعی `ProxyChain` اپ** را روی آن می‌راند:
+It builds a fake phone: an HTTP proxy on `127.0.0.1:18080` and an upstream server, then runs the **real `ProxyChain` class** against it:
 
 ```
-برنامه PC → 127.0.0.1:18099 → گوشی قلابی:18080 → اینترنت قلابی
+PC app → 127.0.0.1:18099 → fake phone:18080 → fake internet
 ```
 
-و این‌ها را بررسی می‌کند:
+And it verifies:
 
-- درخواست HTTP تا انتها می‌رسد و پاسخ درست برمی‌گردد
-- شمارنده بایت در هر دو جهت زیاد می‌شود
-- بدنه ۵۰ کیلوبایتی سالم رد می‌شود
-- تونل `CONNECT` (همان چیزی که HTTPS استفاده می‌کند) بایت‌ها را دوطرفه رد می‌کند
-- گوشی در دسترس نبودن → `502` فوری، نه هنگ
-- گوشی تنظیم نشده → `503` تمیز، نه کرش
-- پورت واقعاً bind می‌شود
-- `stop()` پورت را آزاد می‌کند (وگرنه بار بعد `EADDRINUSE`)
-- ۲۰ اتصال همزمان همه موفق
+- HTTP request reaches the end and returns the correct response
+- Byte counters increase in both directions
+- A 50 KB body passes intact
+- `CONNECT` tunnel (what HTTPS uses) carries bytes both ways
+- Phone unreachable → immediate `502`, not a hang
+- Phone not configured → clean `503`, not a crash
+- Port actually binds
+- `stop()` releases the port (otherwise next run is `EADDRINUSE`)
+- 20 concurrent connections all succeed
 
-> این تست یک باگ واقعی پیدا کرد: وقتی گوشی در دسترس نبود، سوکت کلاینت در
-> `this.sockets` باقی می‌ماند و `stop()` هرگز برنمی‌گشت → یعنی دکمه «قطع اتصال»
-> می‌توانست هنگ کند و System Proxy ویندوز روی پورت مرده بماند. اصلاح شد.
+> This test found a real bug: when the phone was unreachable, the client socket stayed in `this.sockets` and `stop()` never returned — meaning the Disconnect button could hang and Windows System Proxy would stay on a dead port. Fixed.
 
 ---
 
-## ۲. چیزی که همین‌جا **نمی‌شود** ساخت
+## 2. What **cannot** be built here
 
-| مورد | مانع | راه‌حل |
-|------|------|--------|
-| `apk` | JDK 17 نیست (فقط JRE 1.8)، Android SDK نیست، Gradle نیست | Android Studio |
-| `exe` | `electron-builder` باید ۱۱۵ مگابایت باینری Electron را از GitHub بگیرد؛ دانلود بلاک است | روی شبکه باز `npm run dist` |
+| Item | Blocker | Fix |
+|------|---------|-----|
+| `apk` | No JDK 17 (only JRE 1.8), no Android SDK, no Gradle | Android Studio |
+| `exe` | `electron-builder` must fetch a 115 MB Electron binary from GitHub; download is blocked | Run `npm run dist` on an open network |
 
-هر دو مانع شبکه‌ای/ابزاری هستند، نه کدی — یعنی با ابزار درست، ساخته می‌شوند.
+Both blockers are network/tooling, not code — with the right tools they build.
 
 ---
 
-## ۳. تست واقعی: گام‌به‌گام
+## 3. Real test: step by step
 
-### پیش‌نیاز
+### Prerequisites
 
 ```bash
 cd desktop
@@ -69,147 +65,135 @@ npm install
 npm run dev
 ```
 
-اگر `npm run dev` خطای «Electron binary not found» داد، یعنی باینری دانلود نشده.
-روی شبکه باز:
+If `npm run dev` says "Electron binary not found", the binary was not downloaded. On an open network:
 
 ```bash
 node node_modules/electron/install.js
 ```
 
-### گام ۱ — ساخت APK
+### Step 1 — Build APK
 
-پوشه `mobile/` را در Android Studio باز کنید → Gradle Sync → **Build APK(s)**.
+Open folder `mobile/` in Android Studio → Gradle Sync → **Build APK(s)**.
 
-خروجی: `mobile/app/build/outputs/apk/debug/app-debug.apk`
+Output: `mobile/app/build/outputs/apk/debug/app-debug.apk`
 
-روی گوشی نصب کنید.
+Install on the phone.
 
-### گام ۲ — آماده‌سازی گوشی
+### Step 2 — Prepare the phone
 
-1. **VPN دلخواه را روشن کنید** — حالت «همه برنامه‌ها»، نه «برنامه‌های انتخابی».
-   اگر حالت انتخابی باشد، خروجی پروکسی از تونل بیرون می‌رود و کل ایده از بین می‌رود.
-2. **رابط را روشن کنید** — یکی از این دو:
-   - **هات‌اسپات** را روشن کنید (با رمز WPA2)، **یا**
-   - کابل USB را وصل کنید و در تنظیمات گوشی **«اشتراک اینترنت USB»** را روشن کنید.
+1. **Turn on your VPN** — All-apps mode, not selected-apps. If selected-only, proxy output leaves the tunnel and the whole idea fails.
+2. **Turn on the link** — one of these:
+   - **Hotspot** on (WPA2 password), **or**
+   - Plug USB cable and enable **USB tethering** in phone settings.
 
-   > وصل‌کردن کابل به‌تنهایی کافی نیست. تا «اشتراک اینترنت USB» روشن نشود رابط
-   > `rndis0` ساخته نمی‌شود و PC هیچ راهی ندارد.
-3. **اپ NetBridge را باز کنید** → دکمه اشتراک را بزنید.
+   > Plugging the cable alone is not enough. Until USB tethering is on, the `rndis0` interface is not created and the PC has no path.
+3. **Open NetBridge** → press Share.
 
-**اینجا اولین checkpoint است.** در اپ باید ببینید:
+**This is the first checkpoint.** In the app you should see:
 
-| کادر | مقدار درست |
-|------|-----------|
-| VPN گوشی | فعال |
-| اینترنت گوشی | سالم |
-| راه اتصال سیستم | USB یا هات‌اسپات (**نه** «بدون اتصال») |
-| آدرس‌های این گوشی | یک IP مثل `192.168.42.129` یا `192.168.43.1` |
+| Field | Correct value |
+|-------|---------------|
+| Phone VPN | Active |
+| Phone internet | Healthy |
+| System link | USB or hotspot (**not** "none") |
+| This phone's addresses | An IP like `192.168.42.129` or `192.168.43.1` |
 
-اگر «راه اتصال سیستم: بدون اتصال» است، گام ۲ ناقص است. جلوتر نروید.
+If "System link: none", step 2 is incomplete. Do not go further.
 
-### گام ۳ — اتصال PC
+### Step 3 — Connect the PC
 
-1. PC را به هات‌اسپات وصل کنید، یا منتظر بمانید ویندوز شبکه USB را بشناسد.
-2. اپ دسک‌تاپ → برگه **دستگاه** → «جستجوی گوشی».
-   اگر پیدا نشد IP دستی بدهید:
+1. Join the hotspot from the PC, or wait for Windows to recognize the USB network.
+2. Desktop app → **Device** tab → "Scan for phone".
+   If not found, enter manual IP:
    - USB: `192.168.42.129`
-   - هات‌اسپات: `192.168.43.1`
-3. کد ۶ رقمی از برگه «اشتراک‌گذاری» گوشی را وارد کنید → **جفت‌سازی**.
-4. برگه **اتصال** → دکمه بزرگ.
+   - Hotspot: `192.168.43.1`
+3. Enter the 6-digit code from the phone Sharing tab → **Pair**.
+4. **Connect** tab → big button.
 
-**دومین checkpoint:** در برگه اتصال:
+**Second checkpoint** on the Connect tab:
 
-- «VPN گوشی: فعال»
-- «شیر گوشی: فعال»
-- «System Proxy: روشن»
-- «راه اتصال» درست
+- "Phone VPN: active"
+- "Phone share: active"
+- "System Proxy: on"
+- "System link" correct
 
-### گام ۴ — بررسی اینکه واقعاً از VPN رد می‌شود
+### Step 4 — Prove traffic actually goes through the VPN
 
-این مهم‌ترین گام است. فقط «سایت باز شد» کافی نیست — باید ثابت کنید از تونل رد می‌شود.
+This is the most important step. "The site opened" is not enough — you must prove the tunnel is used.
 
-**روش A — مقایسه IP (بهترین):**
+**Method A — IP comparison (best):**
 
-1. IP فعلی را از PC ببینید: <https://ifconfig.me> یا <https://ipinfo.io>
-2. اپ دسک‌تاپ را قطع کنید (System Proxy برمی‌گردد)
-3. همان سایت را از PC دوباره ببینید
+1. Check current IP from the PC: <https://ifconfig.me> or <https://ipinfo.io>
+2. Disconnect the desktop app (System Proxy restores)
+3. Check the same site from the PC again
 
-اگر IP **عوض شد** و با IP خروجی VPN گوشی یکی بود → کار می‌کند. ✅
+If the IP **changed** and matches the phone VPN exit → it works. ✅
 
-**روش B — تست بایت‌شمار:**
+**Method B — byte counter test:**
 
-1. در اپ گوشی، برگه «اشتراک‌گذاری» → «کلاینت‌های متصل» را ببینید
-2. یک صفحه سنگین در مرورگر PC باز کنید
-3. باید IP کامپیوترتان در لیست ظاهر شود و اعداد ↑↓ بالا بروند
+1. On the phone app, Sharing tab → Connected clients
+2. Open a heavy page in the PC browser
+3. Your PC IP should appear and ↑↓ numbers should climb
 
-اگر لیست خالی می‌ماند ولی سایت باز می‌شود، یعنی ترافیک از پروکسی رد نمی‌شود.
+If the list stays empty but the site opens, traffic is not going through the proxy.
 
-**روش C — خط فرمان:**
+**Method C — command line:**
 
 ```bash
-# IP واقعی بدون پروکسی
+# Real IP without proxy
 curl -s https://ifconfig.me
 
-# IP از طریق زنجیره NetBridge (آدرس گوشی را جایگزین کنید)
+# IP through the NetBridge chain (replace phone address)
 curl -s -x http://192.168.42.129:8080 https://ifconfig.me
 ```
 
-دو تا IP باید **متفاوت** باشند و دومی باید IP خروجی VPN باشد.
+The two IPs must **differ**, and the second must be the VPN exit IP.
 
-### گام ۵ — تست حالت‌های خطا
+### Step 5 — Error-state tests
 
-عمداً خرابش کنید و ببینید پیام درست می‌دهد:
+Break it on purpose and check the messages:
 
-| آزمایش | کار | انتظار |
-|--------|-----|--------|
-| VPN بدون اینترنت | VPN را روی سرور مرده وصل کنید | پیام «اینترنت گوشی در دسترس نیست» |
-| بدون VPN | VPN را خاموش کنید | پیام «VPN روی گوشی فعال نیست» ولی شیر کار کند |
-| رابط قطع | هات‌اسپات را خاموش کنید | «راه اتصال: بدون اتصال» و لیست آدرس خالی شود |
-| قطع اتصال | دکمه قطع را بزنید | System Proxy برگردد و اینترنت عادی PC برگردد |
+| Test | Action | Expect |
+|------|--------|--------|
+| VPN without internet | Connect VPN to a dead server | "Phone internet unreachable" |
+| No VPN | Turn VPN off | "Phone VPN not active" but share still works |
+| Link down | Turn hotspot off | "System link: none" and empty address list |
+| Disconnect | Press Disconnect | System Proxy restores and normal PC internet returns |
 
-**آزمایش آخر از همه مهم‌تر است.** بعد از زدن «قطع»، اینترنت PC باید فوراً
-به حالت عادی برگردد. اگر برنگشت، در ویندوز: تنظیمات → شبکه → پروکسی → حالت دستی
-را خاموش کنید.
+**The last test matters most.** After Disconnect, PC internet must return immediately. If not, in Windows: Settings → Network → Proxy → turn off manual mode.
 
 ---
 
-## ۴. اگر تست شکست خورد
+## 4. If a test fails
 
-اول `docs/deployment.md` را ببینید — جدول عیب‌یابی بر اساس همان پیام‌هایی است که
-اپ نشان می‌دهد. اگر پیام را پیدا نکردید، این را از PC اجرا کنید:
+First see `docs/deployment.md` — the troubleshooting table maps to the exact app messages. If you cannot find the message, run this from the PC:
 
 ```bash
-# آیا پروکسی گوشی از PC قابل دسترسی است؟
+# Is the phone proxy reachable from the PC?
 curl -v -x http://<PHONE_IP>:8080 https://example.com
 
-# وضعیت خام از API گوشی
+# Raw status from the phone API
 curl -H "Authorization: Bearer <TOKEN>" http://<PHONE_IP>:7777/api/v1/status
 curl -H "Authorization: Bearer <TOKEN>" http://<PHONE_IP>:7777/api/v1/clients
 ```
 
-تفسیر نتیجه:
+Interpretation:
 
-| نتیجه | معنا |
-|-------|------|
-| `curl -x` جواب داد، اپ نگرفت | مشکل از System Proxy ویندوز است، نه گوشی |
-| `curl -x` هم نگرفت | گوشی/شبکه — آدرس، فایروال، یا شیر اشتراک |
-| `/status` جواب داد ولی `/clients` خالی | ترافیک به گوشی نمی‌رسد |
-| `status.sharing=false` | شیر گوشی روشن نشده |
-| `status.ips` خالی | رابط تتر ساخته نشده |
+| Result | Meaning |
+|--------|---------|
+| `curl -x` works, app does not | Problem is Windows System Proxy, not the phone |
+| `curl -x` also fails | Phone/network — address, firewall, or share |
+| `/status` works but `/clients` empty | Traffic never reaches the phone |
+| `status.sharing=false` | Phone share not turned on |
+| `status.ips` empty | Tether interface not created |
 
 ---
 
-## ۵. آنچه هنوز تست نشده
+## 5. What is still untested
 
-صادقانه بگویم:
+To be honest:
 
-- **کد کاتلین هیچ‌وقت کامپایل نشده** — روی این سیستم JDK 17 و Android SDK نیست.
-  فقط بازبینی دستی شده. قبل از اتکا، یک بار در Android Studio بسازید.
-  محتمل‌ترین جا برای خطای نگارشی: `ShareManager.kt` و `Interfaces.kt`.
-- **حالت واقعی bind به شبکه VPN** (`Network.socketFactory`) روی سخت‌افزار واقعی
-  تست نشده. اگر روی گوشی شما رفتار عجیبی داشت، `preferredRoute()` در
-  `Interfaces.kt` اولین جایی است که باید نگاه کنید. اولویت باید همیشه VPN باشد؛
-  bind به WAN فیزیکی حین روشن‌بودن VPN تونل را دور می‌زند.
-- **رام‌های خاص** که رابط تتر را به `NetworkInterface` نشان نمی‌دهند، پوشش
-  داده نشده‌اند (resolver بومی `GetClients` عمداً انجام نشده).
-- **ترافیک UDP** (بعضی بازی‌ها) پشتیبانی نمی‌شود — System Proxy فقط TCP می‌دهد.
+- **Kotlin code was never compiled here** — no JDK 17 or Android SDK on this machine. Only manual review. Build once in Android Studio before relying on it. Most likely syntax-error spots: `ShareManager.kt` and `Interfaces.kt`.
+- **Real VPN bind path** (`Network.socketFactory`) was not tested on real hardware. If your phone behaves oddly, `preferredRoute()` in `Interfaces.kt` is the first place to look. Priority must always be VPN; binding to physical WAN while VPN is up tunnels around the tunnel.
+- **Specific ROMs** that do not expose the tether interface as `NetworkInterface` are not covered (native `GetClients` resolver was deliberately not done).
+- **UDP traffic** (some games) is not supported — System Proxy only carries TCP.
