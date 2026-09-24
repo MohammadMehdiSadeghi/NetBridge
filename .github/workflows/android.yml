@@ -40,7 +40,7 @@ jobs:
 
       - name: Name APK
         if: github.event_name != 'pull_request'
-        run: cp mobile/app/build/outputs/apk/debug/app-debug.apk NetBridge.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/NetBridge.apk"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
