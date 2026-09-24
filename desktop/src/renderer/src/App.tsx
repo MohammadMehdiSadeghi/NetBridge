@@ -512,7 +512,12 @@ function DeviceView({ netbridge }: { netbridge: NetBridgeHook }): JSX.Element {
                 }`}
               >
                 <span className="font-mono">{phone.address}</span>
-                <span className="text-xs text-muted">{phone.name}</span>
+                <span className="flex items-center gap-2 text-xs">
+                  {phone.reachable === false && (
+                    <span className="text-danger">no answer</span>
+                  )}
+                  <span className="text-muted">{phone.name}</span>
+                </span>
               </button>
             ))}
           </div>

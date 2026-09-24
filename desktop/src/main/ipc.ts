@@ -6,8 +6,10 @@ import {
   getClients,
   getStatus,
   pair as apiPair,
+  probeControl,
   startSharing,
   stopSharing,
+  CONTROL_PORT,
   type PhoneClient
 } from './phoneApi'
 import {
@@ -118,13 +120,36 @@ export class AppController {
   async scan(): Promise<DiscoveredPhone[]> {
     this.patch({ scanning: true, error: null })
     try {
-      const phones = await discoverPhones(2500, (list) => {
+      const found = await discoverPhones(2500, (list) => {
         this.patch({ candidates: list })
       })
+      // mDNS can announce an interface the PC cannot dial (phone on home Wi‑Fi
+      // while we are on USB). Probe control:7777 and keep reachable ones first.
+      const probed = await Promise.all(
+        found.map(async (p) => ({
+          ...p,
+          port: p.port || CONTROL_PORT,
+          reachable: await probeControl(p.address, p.port || CONTROL_PORT)
+        }))
+      )
+      probed.sort((a, b) => Number(b.reachable) - Number(a.reachable))
+
+      // Common tether addresses when mDNS missed or everything is unreachable.
+      for (const fallback of ['192.168.43.1', '192.168.42.129']) {
+        if (probed.some((p) => p.address === fallback)) continue
+        if (await probeControl(fallback)) {
+          probed.push({ address: fallback, name: 'tether', port: CONTROL_PORT, reachable: true })
+        }
+      }
+
+      const phones = probed
       this.patch({ scanning: false, candidates: phones })
-      // Auto-select first candidate if we have no host yet
-      if (phones.length > 0 && !this.state.phoneHost) {
-        await this.selectPhone(phones[0].address)
+      // Prefer a host whose control API actually answers.
+      const alive = phones.find((p) => p.reachable)
+      const current = this.state.phoneHost
+      const currentAlive = current && phones.some((p) => p.address === current && p.reachable)
+      if (alive && !currentAlive) {
+        await this.selectPhone(alive.address)
       }
       return phones
     } catch (e) {
@@ -168,6 +193,12 @@ export class AppController {
     const host = this.state.phoneHost
     if (!host) this.fail('select_phone_first')
     this.patch({ connecting: true, error: null })
+    // Fail fast with a clear code instead of a raw AbortError from fetch.
+    if (!(await probeControl(host))) {
+      this.fail(
+        `pairing_failed::no answer from ${host}:${CONTROL_PORT} within 1500ms — pick the phone IP again or turn on hotspot/USB`
+      )
+    }
     try {
       const token = await apiPair(host, code.trim())
       await this.store.save({ token })

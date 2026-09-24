@@ -4,6 +4,7 @@ export interface DiscoveredPhone {
   address: string
   name: string
   port: number
+  reachable?: boolean
 }
 
 export interface PhoneClient {

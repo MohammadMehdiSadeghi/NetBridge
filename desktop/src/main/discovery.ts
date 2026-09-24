@@ -4,6 +4,8 @@ export interface DiscoveredPhone {
   address: string
   name: string
   port: number
+  /** Control API (7777) accepted a TCP connect — safe to pair against. */
+  reachable?: boolean
 }
 
 const MDNS_ADDR = '224.0.0.251'

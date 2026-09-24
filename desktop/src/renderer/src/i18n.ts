@@ -84,6 +84,11 @@ const fa = {
     'هات‌اسپات یا USB tethering خاموش است؛ سیستم راهی برای اتصال به گوشی ندارد.',
   errSelectPhone: 'ابتدا گوشی را انتخاب کنید',
   errPairingFailed: 'جفت‌سازی ناموفق',
+  errPairTimeout:
+    'گوشی به پورت کنترل جواب نداد — IP درست را در برگه «دستگاه» انتخاب کنید و هات‌اسپات/USB را روشن بگذارید (معمولاً 192.168.43.1 یا 192.168.42.129).',
+  errPairRefused: 'پورت کنترل گوشی بسته است — اپ گوشی را باز و دوباره جستجو کنید.',
+  errPairUnreachable: 'به IP انتخابی گوشی دسترسی نیست — آدرس دیگری را انتخاب کنید یا IP دستی وارد کنید.',
+  errInvalidCode: 'کد ۶ رقمی اشتباه است — کد روی صفحهٔ گوشی را دوباره بخوانید.',
   errPhoneNotFound:
     'گوشی پیدا نشد — آن را انتخاب کنید یا IP را دستی وارد کنید',
   errPairFirst: 'ابتدا با کد ۶ رقمی گوشی جفت‌سازی کنید',
@@ -212,6 +217,11 @@ const en: typeof fa = {
     'Hotspot or USB tethering is off; the PC has no way to connect.',
   errSelectPhone: 'Select a phone first',
   errPairingFailed: 'Pairing failed',
+  errPairTimeout:
+    'The phone did not answer on the control port — pick the phone IP again in the Device tab and keep hotspot/USB on (usually 192.168.43.1 or 192.168.42.129).',
+  errPairRefused: 'The phone control port is closed — open the phone app and scan again.',
+  errPairUnreachable: 'Cannot reach the selected phone IP — choose another address or enter it manually.',
+  errInvalidCode: 'Wrong 6-digit code — read the code on the phone screen again.',
   errPhoneNotFound: 'Phone not found — select it or enter the IP manually',
   errPairFirst: 'Pair with the phone’s 6-digit code first',
   errPhoneUnreachable: 'Phone is unreachable',
@@ -323,8 +333,15 @@ export function errorText(error: string): string {
   switch (code) {
     case 'select_phone_first':
       return wrong(d.errSelectPhone)
-    case 'pairing_failed':
+    case 'pairing_failed': {
+      if (/invalid code/i.test(detail)) return wrong(d.errInvalidCode)
+      if (/refused/i.test(detail)) return wrong(d.errPairRefused)
+      if (/no answer|abort|timeout/i.test(detail)) return wrong(d.errPairTimeout)
+      if (/cannot reach|ENOTFOUND|EHOSTUNREACH|ENETUNREACH/i.test(detail)) {
+        return wrong(d.errPairUnreachable)
+      }
       return wrong(withDetail(d.errPairingFailed))
+    }
     case 'phone_not_found':
       return wrong(d.errPhoneNotFound)
     case 'pair_first':

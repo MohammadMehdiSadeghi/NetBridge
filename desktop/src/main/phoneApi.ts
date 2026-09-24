@@ -1,3 +1,5 @@
+import net from 'net'
+
 export interface PhoneClient {
   address: string
   connections: number
@@ -30,6 +32,51 @@ export interface PhoneStatus {
 }
 
 const TIMEOUT_MS = 5000
+export const CONTROL_PORT = 7777
+
+/** TCP probe — is the phone's control API listening on this address? */
+export function probeControl(
+  host: string,
+  port: number = CONTROL_PORT,
+  timeoutMs = 1500
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    let settled = false
+    const done = (ok: boolean): void => {
+      if (settled) return
+      settled = true
+      socket.removeAllListeners()
+      socket.destroy()
+      resolve(ok)
+    }
+    const socket = net.connect({ host, port })
+    socket.setTimeout(timeoutMs, () => done(false))
+    socket.once('connect', () => done(true))
+    socket.once('error', () => done(false))
+  })
+}
+
+function networkError(host: string, e: unknown): Error {
+  const err = e as Error & { cause?: { code?: string }; code?: string }
+  const name = err?.name ?? ''
+  const msg = err?.message ?? String(e)
+  const code = err?.cause?.code || err?.code || ''
+  if (name === 'AbortError' || /abort/i.test(msg)) {
+    return new Error(`no answer from ${host}:${CONTROL_PORT} within ${TIMEOUT_MS}ms`)
+  }
+  if (code === 'ECONNREFUSED' || /ECONNREFUSED/i.test(msg)) {
+    return new Error(`connection refused by ${host}:${CONTROL_PORT}`)
+  }
+  if (
+    code === 'ENOTFOUND' ||
+    code === 'EHOSTUNREACH' ||
+    code === 'ENETUNREACH' ||
+    /ENOTFOUND|EHOSTUNREACH|ENETUNREACH/i.test(msg)
+  ) {
+    return new Error(`cannot reach ${host}`)
+  }
+  return err instanceof Error ? err : new Error(msg)
+}
 
 async function request<T>(
   host: string,
@@ -41,7 +88,7 @@ async function request<T>(
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
   try {
-    const res = await fetch(`http://${host}:7777${path}`, {
+    const res = await fetch(`http://${host}:${CONTROL_PORT}${path}`, {
       method,
       signal: controller.signal,
       headers: {
@@ -62,6 +109,8 @@ async function request<T>(
       throw new Error(err || `HTTP ${res.status}`)
     }
     return json as T
+  } catch (e) {
+    throw networkError(host, e)
   } finally {
     clearTimeout(timer)
   }
