@@ -1,120 +1,119 @@
-# راهنمای استقرار NetBridge
+# NetBridge deployment guide
 
-سرور جداگانه‌ای لازم نیست. فقط دو اپ:
+No separate server is required. Just two apps:
 
-## ۱. اپ اندروید (`mobile/`)
+## 1. Android app (`mobile/`)
 
-### با Android Studio
+### With Android Studio
 
-1. Android Studio را باز کنید → **Open** → پوشه `mobile`
-2. صبر کنید Gradle Sync تمام شود
+1. Android Studio → **Open** → folder `mobile`
+2. Wait for Gradle Sync
 3. **Build → Build Bundle(s)/APK(s) → Build APK(s)**
-4. خروجی: `mobile/app/build/outputs/apk/debug/app-debug.apk`
+4. Output: `mobile/app/build/outputs/apk/debug/app-debug.apk`
 
-### با خط فرمان (نیازمند JDK 17 + Android SDK)
+### From the command line (needs JDK 17 + Android SDK)
 
 ```bash
 cd mobile
-./gradlew assembleDebug        # لینوکس/مک
-gradlew.bat assembleDebug      # ویندوز
+./gradlew assembleDebug        # Linux/macOS
+gradlew.bat assembleDebug      # Windows
 ```
 
-### راه‌اندازی روی گوشی
+### On-device setup
 
-1. VPN دلخواه خود را روشن کنید (حالت «همه برنامه‌ها»)
-2. NetBridge را باز کنید → دکمه روشن/اشتراک
-3. یکی از دو راه را آماده کنید:
-   - **هات‌اسپات:** هات‌اسپات را روشن کنید (با رمز WPA2)
-   - **USB:** کابل را وصل کنید و در تنظیمات گوشی **«اشتراک اینترنت USB»** را روشن کنید
-4. برگه **اشتراک‌گذاری**: کد ۶ رقمی + IP گوشی + پورت‌ها
-5. اپ دسک‌تاپ را روی PC باز کنید
+1. Turn on your VPN (All-apps mode)
+2. Open NetBridge → Share/On button
+3. Prepare one of the paths:
+   - **Hotspot:** turn hotspot on (WPA2), **or**
+   - **USB:** plug the cable and enable **USB tethering** in phone settings
+4. Sharing tab: 6-digit code + phone IP + ports
+5. Open the desktop app on the PC
 
-> **USB فقط با کابل کار نمی‌کند.** تا وقتی «اشتراک اینترنت USB» روشن نشود،
-> رابط `rndis`/`ncm` روی گوشی ساخته نمی‌شود و PC هیچ راهی به پروکسی ندارد.
-> در اپ، کادر «راه اتصال سیستم» باید `USB` یا `هات‌اسپات` نشان بدهد؛ اگر
-> «بدون اتصال» است یعنی این مرحله انجام نشده.
+> **USB does not work with cable alone.** Until USB tethering is on, the
+> `rndis`/`ncm` interface is not created on the phone and the PC has no path
+> to the proxy. In the app, the "System link" box must show `USB` or `Hotspot`;
+> if it shows `none`, this step is incomplete.
 
-> پورت‌های پیش‌فرض: پروکسی `8080`، SOCKS `1080`، کنترل `7777`
+> Default ports: proxy `8080`, SOCKS `1080`, control `7777`
 
-### آدرس‌ها روی هر حالت
+### Addresses per mode
 
-| راه اتصال | رابط گوشی | IP گوشی | IP معمول PC |
-|-----------|-----------|---------|-------------|
-| هات‌اسپات | `ap*` / `swlan*` | `192.168.43.1` | `192.168.43.x` |
+| Path | Phone interface | Phone IP | Typical PC IP |
+|------|-----------------|----------|---------------|
+| Hotspot | `ap*` / `swlan*` | `192.168.43.1` | `192.168.43.x` |
 | USB | `rndis0` / `ncm0` | `192.168.42.129` | `192.168.42.x` |
 
-اپ فقط آدرس‌های **قابل‌اتصال** را نشان می‌دهد: آدرس‌های `rmnet*` (دیتای موبایل) و
-`tun*` (تونل VPN) فیلتر می‌شوند، چون PC از آن‌ها نمی‌تواند به گوشی برسد.
+The app only shows **connectable** addresses: `rmnet*` (mobile data) and
+`tun*` (VPN tunnel) are filtered out, because the PC cannot reach the phone on them.
 
-## ۲. اپ دسک‌تاپ ویندوز (`desktop/`)
+## 2. Desktop app (`desktop/`)
 
-پیش‌نیاز: Node.js 20+
+Prerequisite: Node.js 20+
 
 ```bash
 cd desktop
 npm install
-npm run dev        # اجرا در حالت توسعه
-npm run typecheck  # بررسی تایپ‌ها
-npm run dist       # ساخت نصب‌کننده NSIS → desktop/release/*.exe
+npm run dev        # development run
+npm run typecheck  # type check
+npm run dist       # build NSIS installer → desktop/release/*.exe
 ```
 
-### اولین اتصال
+### First connection
 
-1. PC به هات‌اسپات گوشی وصل شود — یا کابل USB وصل و USB tethering روشن شود
-2. اپ دسک‌تاپ → برگه **دستگاه** → گوشی خودکار پیدا می‌شود (یا IP دستی)
-3. کد ۶ رقمی گوشی را وارد کنید → جفت‌سازی
-4. دکمه اصلی اتصال را بزنید:
-   - پروکسی محلی بالا می‌آید
-   - System Proxy ویندوز روشن می‌شود
-   - شیر اشتراک روی گوشی فعال می‌شود
-5. هنگام قطع، System Proxy به حالت قبل برمی‌گردد
+1. PC joins phone hotspot — or USB plugged and USB tethering on
+2. Desktop app → **Device** tab → phone is auto-discovered (or manual IP)
+3. Enter the phone's 6-digit code → pair
+4. Press the main Connect button:
+   - Local proxy starts
+   - Windows System Proxy turns on
+   - Phone share activates
+5. On disconnect, System Proxy restores previous values
 
 ---
 
-## عیب‌یابی
+## Troubleshooting
 
-### اول از همه: صفحه «اتصال» را نگاه کنید
+### First: look at the Connect screen
 
-اپ دسک‌تاپ و اپ گوشی حالا وضعیت را تفکیک‌شده نشان می‌دهند. پیام را با جدول زیر
-تطبیق بدهید — هر پیام دقیقاً یک کار مشخص می‌خواهد:
+Desktop and phone apps now show differentiated status. Match the message to the table — each message asks for exactly one action:
 
-| پیام / نشانه | معنا | کار |
-|--------------|------|-----|
-| «VPN روی گوشی فعال نیست» | شیر کار می‌کند ولی از تونل رد نمی‌شود | اپ VPN را در حالت «همه برنامه‌ها» روشن کنید |
-| «اینترنت گوشی در دسترس نیست» | تونل VPN بالا است ولی شبکه زیرینش قطع است | **VPN را قطع کنید** یا اتصال داده را بررسی کنید |
-| «راه اتصال سیستم: بدون اتصال» | نه هات‌اسپات روشن است نه USB tethering | یکی را روشن کنید |
-| «گوشی … آدرس قابل‌اتصالی ندارد» | شیر روشن است ولی رابط تتر ساخته نشده | «اشتراک اینترنت USB» یا هات‌اسپات را روشن کنید |
-| لیست «کلاینت‌های متصل» خالی می‌ماند | درخواست‌ها به گوشی نمی‌رسند | IP گوشی، فایروال ویندوز، و VPN گوشی را بررسی کنید |
+| Message / sign | Meaning | Action |
+|----------------|---------|--------|
+| "Phone VPN not active" | Share works but traffic skips the tunnel | Enable VPN in All-apps mode |
+| "Phone internet unreachable" | Tunnel is up but underlay is down | **Turn VPN off** or check mobile data |
+| "System link: none" | Neither hotspot nor USB tethering on | Turn one on |
+| "Phone … has no connectable address" | Share on but tether interface not created | Enable USB tethering or hotspot |
+| Connected clients list stays empty | Requests never reach the phone | Check phone IP, Windows firewall, and phone VPN |
 
-> **VPN را از روی «اینترنت ندارد» تشخیص ندهید.** خیلی از اپ‌های VPN وقتی وصل
-> می‌شوند، گوشی موقتاً «بدون اینترنت» گزارش می‌دهد چون DNS عوض می‌شود. اگر
-> `internetReachable` منفی است ولی خودِ گوشی در مرورگر سایت باز می‌کند، اپ را
-> نادیده بگیرید؛ اگر گوشی هم سایت باز نمی‌کند، VPN را قطع کنید.
+> **Do not diagnose "no internet" as VPN off.** Many VPN apps report the phone
+> as "no internet" briefly after connecting because DNS changes. If
+> `internetReachable` is false but the phone browser opens sites, ignore the app;
+> if the phone also cannot open sites, turn the VPN off.
 
-### مشکلات رایج
+### Common problems
 
-| مشکل | راه‌حل |
-|------|--------|
-| دسک‌تاپ گوشی را نمی‌بیند | IP دستی وارد کنید: هات‌اسپات `192.168.43.1`، USB `192.168.42.129`؛ فایروال ویندوز را برای اپ باز کنید |
-| «کد نادرست» | کد ۶ رقمی روی گوشی را دوباره بخوانید؛ در گوشی «کد جدید» بزنید |
-| VPN در سیستم اعمال نمی‌شود | در اپ VPN گوشی حالت «همه برنامه‌ها» را بزنید نه «برنامه انتخابی» |
-| هات‌اسپات با VPN قطع می‌شود | بعضی رام‌ها همزمان نمی‌آورند → حالت USB tethering را امتحان کنید |
-| ویندوز می‌گوید «اینترنت ندارد» و سایت باز نمی‌شود | اتصال تتر را در تنظیمات ویندوز از حالت «متراکم/metered» خارج کنید؛ ویندوز در حالت متراکم پروکسی را نادیده می‌گیرد |
-| پروکسی ویندوز کار نکرد | در تنظیمات دسک‌تاپ، System Proxy را خاموش و روشن کنید |
-| بعد از بستن اپ، اینترنت سیستم برنگشت | اپ هنگام قطع System Proxy را برمی‌گرداند؛ اگر کرش کرد، در «تنظیمات → شبکه → پروکسی» حالت دستی را خاموش کنید |
-| سایتی بالا نمی‌آید | اپ VPN را یک‌بار قطع/وصل کنید؛ DNS سیستم را `1.1.1.1` بگذارید |
+| Problem | Fix |
+|---------|-----|
+| Desktop does not see the phone | Enter manual IP: hotspot `192.168.43.1`, USB `192.168.42.129`; allow the app through Windows Firewall |
+| "Wrong code" | Re-read the 6-digit code on the phone; press "New code" on the phone |
+| VPN not applied on the system | In the phone VPN app choose All-apps, not selected-apps |
+| Hotspot drops with VPN | Some ROMs cannot do both → try USB tethering |
+| Windows says "no internet" and sites fail | Set that network adapter to not metered; Windows ignores proxy on metered links |
+| Windows proxy does not work | In desktop settings toggle System Proxy off and on |
+| Internet does not return after closing the app | App restores System Proxy on disconnect; if it crashed, turn off manual mode in Settings → Network → Proxy |
+| A site does not load | Toggle the phone VPN once; set system DNS to `1.1.1.1` |
 
-### بررسی سریع
+### Quick checks
 
 ```bash
-# از PC — آدرس گوشی را جایگزین کنید
+# From PC — replace phone address
 curl -v -x http://192.168.42.129:8080 https://example.com
 
-# وضعیت مستقیم از API گوشی (توکن را از اپ دسک‌تاپ بردارید)
+# Raw status from phone API (take token from desktop app)
 curl -H "Authorization: Bearer <token>" http://192.168.42.129:7777/api/v1/status
 curl -H "Authorization: Bearer <token>" http://192.168.42.129:7777/api/v1/clients
 ```
 
-پاسخ `HTTP/1.1 200` یعنی زنجیره سالم است. اگر `curl -x` جواب داد ولی اپ نگرفت،
-مشکل از System Proxy ویندوز است نه از گوشی. اگر `/clients` بعد از `curl -x`
-خالی ماند، یعنی ترافیک اصلاً به گوشی نرسیده.
+`HTTP/1.1 200` means the chain is healthy. If `curl -x` works but the app does not,
+the problem is Windows System Proxy, not the phone. If `/clients` stays empty after
+`curl -x`, traffic never reached the phone.
