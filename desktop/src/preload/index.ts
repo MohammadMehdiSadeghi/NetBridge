@@ -20,6 +20,7 @@ const api = {
     ipcRenderer.invoke('netbridge:setSystemProxy', enabled),
   forgetPairing: () => ipcRenderer.invoke('netbridge:forgetPairing'),
   refresh: () => ipcRenderer.invoke('netbridge:refresh'),
+  openExternal: (url: string) => ipcRenderer.invoke('netbridge:openExternal', url),
   onState: (callback: (state: unknown) => void) => {
     const listener = (_e: Electron.IpcRendererEvent, state: unknown): void =>
       callback(state)
