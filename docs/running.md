@@ -1,39 +1,36 @@
-# راهنمای اجرا (Run)
+# Running guide
 
-دو اپ داریم و هر کدام روش اجرای خودش را دارد. این سند کوتاه و دقیق است.
-
----
-
-## خلاصه یک‌خطی
-
-| چه چیزی | دستور | پیش‌نیاز |
-|---------|-------|----------|
-| تست‌ها (همین حالا) | `npm test` | Node |
-| اپ دسکتاپ (توسعه) | `npm run dev:desktop` | باینری Electron |
-| اپ دسکتاپ (اجرای بیلد) | `npm run run:desktop` | باینری Electron + بیلد |
-| ساخت `exe` | `npm run desktop:dist` | باینری Electron |
-| اپ اندروید | Android Studio → Run | JDK 17 + Android SDK |
+Two apps, each with its own way to run. This document is short and precise.
 
 ---
 
-## ۱. تست‌ها — همین حالا کار می‌کند
+## One-line summary
+
+| What | Command | Prerequisite |
+|------|---------|--------------|
+| Tests (now) | `npm test` | Node |
+| Desktop (dev) | `npm run dev:desktop` | Electron binary |
+| Desktop (run build) | `npm run run:desktop` | Electron binary + build |
+| Build `exe` | `npm run desktop:dist` | Electron binary |
+| Android app | Android Studio → Run | JDK 17 + Android SDK |
+
+---
+
+## 1. Tests — work right now
 
 ```bash
 npm test
 ```
 
-هیچ پیش‌نیازی جز Node لازم نیست. شش مرحله اجرا می‌شود و در آخر صریح می‌گوید
-چه چیزی تست **نشد** (تا سبز بودن تست را با «همه‌چیز کار می‌کند» اشتباه نگیرید).
+Nothing but Node is required. Six stages run and the summary explicitly says what was **not** tested (so a green run is not mistaken for "everything works").
 
 ---
 
-## ۲. اپ دسکتاپ
+## 2. Desktop app
 
-### گام اول: باینری Electron
+### Step 1: Electron binary
 
-`npm install` باینری Electron را دانلود می‌کند، ولی روی بعضی شبکه‌ها این دانلود
-نصفه رها می‌شود (GitHub یک ۳۰۲ می‌دهد و صفر بایت می‌فرستد). اگر
-`desktop/node_modules/electron/dist/electron.exe` وجود ندارد، این را اجرا کنید:
+`npm install` downloads the Electron binary, but on some networks that download is left half-done (GitHub returns a 302 and zero bytes). If `desktop/node_modules/electron/dist/electron.exe` is missing, run:
 
 ```bash
 cd desktop
@@ -41,39 +38,37 @@ ELECTRON_MIRROR="https://registry.npmmirror.com/-/binary/electron/" \
   node node_modules/electron/install.js
 ```
 
-اگر این هم نصفه ماند (اتصال طولانی قطع می‌شود):
+If that also stalls (long connections drop):
 
 ```bash
 cd ..
-node tools/fetch-electron.mjs      # دانلود تکه‌تکه با ادامه از محل قطع
+node tools/fetch-electron.mjs      # chunked download with resume
 ```
 
-اسکریپت `fetch-electron.mjs` فایل را در تکه‌های ۵۱۲ کیلوبایتی می‌گیرد و از جایی که
-قطع شده ادامه می‌دهد، پس هر بار که قطع شد فقط همان را دوباره اجرا کنید تا تمام شود.
+`fetch-electron.mjs` downloads in 512 KB chunks and resumes from where it stopped, so if it drops just run it again until it finishes.
 
-بعد از دانلود، این را چک کنید:
+Then verify:
 
 ```bash
 ls desktop/node_modules/electron/dist/electron.exe
 ```
 
-### گام دوم: اجرا
+### Step 2: Run
 
 ```bash
 npm run dev:desktop
 ```
 
-این `electron-vite dev` را اجرا می‌کند: رابط React را با hot-reload بالا می‌آورد و
-پنجره اپ را باز می‌کند.
+This runs `electron-vite dev`: React UI with hot-reload and opens the app window.
 
-اگر فقط می‌خواهید بیلد نهایی را اجرا کنید (بدون hot-reload):
+To run only the production build (no hot-reload):
 
 ```bash
 npm run desktop:build
 npm run run:desktop
 ```
 
-### ساختن نصب‌کننده
+### Building the installer
 
 ```bash
 npm run desktop:dist        # → desktop/release/NetBridge Setup x.x.x.exe
@@ -81,49 +76,48 @@ npm run desktop:dist        # → desktop/release/NetBridge Setup x.x.x.exe
 
 ---
 
-## ۳. اپ اندروید
+## 3. Android app
 
-روی این سیستم **نمی‌شود ساخت** (نه JDK 17، نه Android SDK). روی سیستمی که
-Android Studio دارد:
+This machine **cannot build** (no JDK 17, no Android SDK). On a machine with Android Studio:
 
-1. Android Studio → **Open** → پوشه `mobile/`
-2. صبر کنید Gradle Sync تمام شود
-3. گوشی را با USB وصل کنید و USB Debugging را روشن کنید
-4. **Run ▶** را بزنید
+1. Android Studio → **Open** → folder `mobile/`
+2. Wait for Gradle Sync
+3. Connect the phone with USB and enable USB Debugging
+4. Press **Run ▶**
 
-یا فقط APK بسازید:
+Or only build the APK:
 
 ```bash
 cd mobile
-gradlew.bat assembleDebug      # ویندوز
-./gradlew assembleDebug        # لینوکس/مک
+gradlew.bat assembleDebug      # Windows
+./gradlew assembleDebug        # Linux/macOS
 ```
 
-خروجی: `mobile/app/build/outputs/apk/debug/app-debug.apk`
+Output: `mobile/app/build/outputs/apk/debug/app-debug.apk`
 
-سپس روی گوشی نصب کنید و مراحل `docs/testing.md` را برای تست واقعی برو.
-
----
-
-## ۴. ترتیب درست برای تست واقعی
-
-1. `npm test` — مطمئن شوید پایه سالم است
-2. `npm run dev:desktop` — اپ دسکتاپ بالا بیاید
-3. اپ اندروید را در Android Studio اجرا/نصب کنید
-4. **VPN گوشی را روشن کنید** (حالت همه برنامه‌ها)
-5. **هات‌اسپات یا USB tethering را روشن کنید**
-6. در اپ گوشی دکمه اشتراک را بزنید
-7. در اپ دسکتاپ: برگه دستگاه → جستجو → کد ۶ رقمی → جفت‌سازی
-8. برگه اتصال → دکمه بزرگ
-9. تأیید نهایی با `curl` طبق `docs/testing.md` گام ۴
+Then install on the phone and follow `docs/testing.md` for a real test.
 
 ---
 
-## ۵. اگر اپ دسکتاپ پنجره باز نکرد
+## 4. Correct order for a real test
 
-| نشانه | معنی | کار |
-|-------|------|-----|
-| `Electron failed to install correctly` | باینری نیست | گام اول بالا را اجرا کنید |
-| پنجره باز می‌شود ولی سفید است | رابط بالا نیامده | `npm run desktop:build` و بعد `npm run run:desktop` |
-| `EADDRINUSE` روی ۱۸۰۸۰ | پورت اشغال است | در تنظیمات اپ پورت را عوض کنید یا اپ قبلی را ببندید |
-| گوشی پیدا نمی‌شود | mDNS روی هات‌اسپات برخی رام‌ها کار نمی‌کند | IP دستی بدهید (`192.168.42.129` یا `192.168.43.1`) |
+1. `npm test` — make sure the base is healthy
+2. `npm run dev:desktop` — desktop app up
+3. Run/install the Android app in Android Studio
+4. **Turn on phone VPN** (All-apps mode)
+5. **Turn on hotspot or USB tethering**
+6. Press Share on the phone app
+7. Desktop app: Device tab → scan → 6-digit code → pair
+8. Connect tab → big button
+9. Final check with `curl` per `docs/testing.md` step 4
+
+---
+
+## 5. If the desktop app window does not open
+
+| Symptom | Meaning | Action |
+|---------|---------|--------|
+| `Electron failed to install correctly` | Binary missing | Run step 1 above |
+| Window opens but white | UI not loaded | `npm run desktop:build` then `npm run run:desktop` |
+| `EADDRINUSE` on 18080 | Port busy | Change port in app settings or close the previous instance |
+| Phone not found | mDNS broken on some ROM hotspots | Use manual IP (`192.168.42.129` or `192.168.43.1`) |
