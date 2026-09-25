@@ -112,16 +112,9 @@ class NetworkMonitor(private val context: Context) {
     }
 
     private fun hasUplink(report: Interfaces.NetworkReport): Boolean {
-        if (report.wanNetworks.isEmpty()) return false
-        return try {
-            report.wanNetworks.any { n ->
-                cm.getNetworkCapabilities(n)?.hasCapability(
-                    android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED
-                ) == true
-            }
-        } catch (_: Exception) {
-            true
-        }
+        if (report.vpnActive) return true
+        if (report.wanNetworks.isNotEmpty()) return true
+        return false
     }
 
     companion object {

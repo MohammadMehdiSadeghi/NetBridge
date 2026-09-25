@@ -105,10 +105,14 @@ object ShareManager {
             ?: return
         val cb = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
+                httpServer?.invalidateRoute()
+                socksServer?.invalidateRoute()
                 onRouteChanged?.invoke()
             }
 
             override fun onLost(network: Network) {
+                httpServer?.invalidateRoute()
+                socksServer?.invalidateRoute()
                 onRouteChanged?.invoke()
             }
 
@@ -116,6 +120,8 @@ object ShareManager {
                 network: Network,
                 linkProperties: android.net.LinkProperties
             ) {
+                httpServer?.invalidateRoute()
+                socksServer?.invalidateRoute()
                 onRouteChanged?.invoke()
             }
         }

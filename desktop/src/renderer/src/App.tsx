@@ -240,7 +240,7 @@ function HomeView({ netbridge }: { netbridge: NetBridgeHook }): JSX.Element {
         />
         <Pill
           icon={<Cable size={16} />}
-          label="System Proxy"
+          label={strings.systemProxy}
           value={state.systemProxyOn ? strings.on : strings.off}
           tone={state.systemProxyOn ? 'ok' : 'muted'}
         />
@@ -274,7 +274,7 @@ function HomeView({ netbridge }: { netbridge: NetBridgeHook }): JSX.Element {
         <Stat
           icon={<Activity size={16} className="text-brand" />}
           label={strings.phoneClients}
-          value={String(state.phoneClients)}
+          value={String(state.phoneClientsDetail.length || state.phoneClients)}
         />
         <Stat
           icon={<Link2 size={16} className="text-brand" />}
@@ -287,7 +287,7 @@ function HomeView({ netbridge }: { netbridge: NetBridgeHook }): JSX.Element {
         <div className="mb-3 flex items-center justify-between">
           <span className="text-sm font-bold text-ink">{strings.clientsOnPhone}</span>
           <span className="text-[11px] text-muted">
-            {strings.activeCount.replace('%d', String(state.phoneClients))}
+            {strings.activeCount.replace('%d', String(state.phoneClientsDetail.length || state.phoneClients))}
           </span>
         </div>
         {state.phoneClientsDetail.length === 0 ? (
@@ -324,17 +324,17 @@ function HomeView({ netbridge }: { netbridge: NetBridgeHook }): JSX.Element {
           <span className="text-sm font-bold text-ink">{strings.trafficPath}</span>
           <span className="text-[11px] text-muted">{strings.noRoot}</span>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted" dir={isFa() ? 'rtl' : 'ltr'}>
           <Chip>{strings.windowsApps}</Chip>
-          <Arrow className="text-brand">←</Arrow>
+          <Arrow className="text-brand">{isFa() ? '←' : '→'}</Arrow>
           <Chip>127.0.0.1:{state.localPort}</Chip>
-          <Arrow className="text-brand">←</Arrow>
+          <Arrow className="text-brand">{isFa() ? '←' : '→'}</Arrow>
           <Chip>
             {strings.phonePort} :{state.phoneHttpPort}
           </Chip>
-          <Arrow className="text-brand">←</Arrow>
+          <Arrow className="text-brand">{isFa() ? '←' : '→'}</Arrow>
           <Chip>{strings.vpnPhone}</Chip>
-          <Arrow className="text-brand">←</Arrow>
+          <Arrow className="text-brand">{isFa() ? '←' : '→'}</Arrow>
           <Chip>{strings.internet}</Chip>
         </div>
       </div>
@@ -514,7 +514,7 @@ function DeviceView({ netbridge }: { netbridge: NetBridgeHook }): JSX.Element {
                 <span className="font-mono">{phone.address}</span>
                 <span className="flex items-center gap-2 text-xs">
                   {phone.reachable === false && (
-                    <span className="text-danger">no answer</span>
+                    <span className="text-danger">{strings.noAnswer}</span>
                   )}
                   <span className="text-muted">{phone.name}</span>
                 </span>
@@ -630,7 +630,9 @@ function SettingsView({ netbridge }: { netbridge: NetBridgeHook }): JSX.Element 
         >
           <span
             className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-all ${
-              state.systemProxyOn ? 'right-1' : 'right-6'
+              isFa()
+                ? (state.systemProxyOn ? 'right-6' : 'right-1')
+                : (state.systemProxyOn ? 'left-6' : 'left-1')
             }`}
           />
         </button>

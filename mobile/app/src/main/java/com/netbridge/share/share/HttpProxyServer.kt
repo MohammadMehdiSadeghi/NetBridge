@@ -118,17 +118,22 @@ class HttpProxyServer(
         dispatcher = null
     }
 
+    fun invalidateRoute() {
+        cachedRoute = null
+        routeResolvedAt = 0L
+    }
+
     private fun route(): Network? {
         val ctx = appContext ?: return null
         val now = System.currentTimeMillis()
-        if (now - routeResolvedAt > 5000) {
+        if (now - routeResolvedAt > 3000) {
             cachedRoute = Interfaces.preferredRoute(ctx)
             routeResolvedAt = now
         }
         return cachedRoute
     }
 
-    private fun handle(client: Socket, id: Long) {
+    private suspend fun handle(client: Socket, id: Long) {
         val peer = client.inetAddress?.hostAddress ?: "unknown"
         onEvent(Event.Opened(id, peer))
         var upstream: Socket? = null
@@ -233,46 +238,28 @@ class HttpProxyServer(
         }
     }
 
-    private fun pipe(client: Socket, upstream: Socket, id: Long, peer: String) {
-        val lock = Any()
-        var done = false
-        val t1 = Thread {
-            try {
-                copy(upstream.getInputStream(), client.getOutputStream(), peer, up = false)
-            } finally {
-                synchronized(lock) {
-                    if (!done) {
-                        done = true
-                        closeQuietly(client, upstream)
-                    }
+    private suspend fun pipe(client: Socket, upstream: Socket, id: Long, peer: String) =
+        kotlinx.coroutines.coroutineScope {
+            val j1 = launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    copy(upstream.getInputStream(), client.getOutputStream(), peer, up = false)
+                } finally {
+                    closeQuietly(client, upstream)
                 }
             }
-        }
-        val t2 = Thread {
-            try {
-                copy(client.getInputStream(), upstream.getOutputStream(), peer, up = true)
-            } finally {
-                synchronized(lock) {
-                    if (!done) {
-                        done = true
-                        closeQuietly(client, upstream)
-                    }
+            val j2 = launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    copy(client.getInputStream(), upstream.getOutputStream(), peer, up = true)
+                } finally {
+                    closeQuietly(client, upstream)
                 }
             }
+            j1.join()
+            j2.join()
         }
-        t1.isDaemon = true
-        t2.isDaemon = true
-        t1.start()
-        t2.start()
-        try {
-            t1.join()
-            t2.join()
-        } catch (_: InterruptedException) {
-        }
-    }
 
     private fun copy(input: InputStream, output: OutputStream, peer: String, up: Boolean) {
-        val buf = ByteArray(16384)
+        val buf = ByteArray(32768)
         try {
             while (true) {
                 val n = input.read(buf)
@@ -301,16 +288,16 @@ class HttpProxyServer(
             try {
                 val s = net.socketFactory.createSocket() as Socket
                 s.tcpNoDelay = true
-                s.connect(InetSocketAddress(host, port), 12_000)
+                s.connect(InetSocketAddress(host, port), 6_000)
                 return s
             } catch (_: Exception) {
-                // Fall through to the default route rather than failing the request.
+                cachedRoute = null
             }
         }
         return try {
             val s = Socket()
             s.tcpNoDelay = true
-            s.connect(InetSocketAddress(host, port), 12_000)
+            s.connect(InetSocketAddress(host, port), 6_000)
             s
         } catch (_: Exception) {
             null

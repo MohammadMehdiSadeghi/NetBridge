@@ -82,7 +82,10 @@ object ClientRegistry {
         }.sortedByDescending { it.lastSeen }
     }
 
-    fun activeCount(): Int = buckets.values.count { it.connections.get() > 0 }
+    fun activeCount(): Int {
+        val now = System.currentTimeMillis()
+        return buckets.values.count { it.connections.get() > 0 || (now - it.lastSeen.get()) <= STALE_AFTER_MS }
+    }
 
     fun reset() {
         buckets.clear()

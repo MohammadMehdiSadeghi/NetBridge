@@ -137,7 +137,8 @@ const fa = {
   linkLinkedin: 'لینکدین',
   githubUrl: 'https://github.com/MohammadMehdiSadeghi',
   linkedinUrl: 'https://www.linkedin.com/in/mohammad-mehdi-sadeghi',
-  wrongPrefix: 'اینجا را اشتباه رفتی:'
+  wrongPrefix: 'اینجا را اشتباه رفتی:',
+  noAnswer: 'بدون پاسخ'
 }
 
 const en: typeof fa = {
@@ -273,7 +274,8 @@ const en: typeof fa = {
   linkLinkedin: 'LinkedIn',
   githubUrl: 'https://github.com/MohammadMehdiSadeghi',
   linkedinUrl: 'https://www.linkedin.com/in/mohammad-mehdi-sadeghi',
-  wrongPrefix: 'You went wrong here:'
+  wrongPrefix: 'You went wrong here:',
+  noAnswer: 'No response'
 }
 
 function detect(): Lang {
@@ -300,6 +302,16 @@ export function setLang(lang: Lang): void {
   } catch {
     /* ignore */
   }
+  if (typeof document !== 'undefined') {
+    document.documentElement.dir = lang === 'fa' ? 'rtl' : 'ltr'
+    document.documentElement.lang = lang
+  }
+}
+
+// Ensure document root direction is set on initial script execution
+if (typeof document !== 'undefined') {
+  document.documentElement.dir = current === 'fa' ? 'rtl' : 'ltr'
+  document.documentElement.lang = current
 }
 
 export function t(): typeof fa {

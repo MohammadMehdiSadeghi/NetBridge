@@ -61,9 +61,18 @@ private val NetBridgeTypography = Typography(
 
 @Composable
 fun NetBridgeTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = NetBridgeColors,
-        typography = NetBridgeTypography,
-        content = content
-    )
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val store = androidx.compose.runtime.remember { com.netbridge.share.data.SettingsStore(context) }
+    val isRtl = store.appLang != "en"
+    val layoutDir = if (isRtl) androidx.compose.ui.unit.LayoutDirection.Rtl else androidx.compose.ui.unit.LayoutDirection.Ltr
+
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalLayoutDirection provides layoutDir
+    ) {
+        MaterialTheme(
+            colorScheme = NetBridgeColors,
+            typography = NetBridgeTypography,
+            content = content
+        )
+    }
 }

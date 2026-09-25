@@ -250,21 +250,12 @@ object Interfaces {
         }
     }
 
-    /**
-     * The network we must bind outbound proxy sockets to so the traffic really leaves
-     * through the phone's tunnel.
-     *
-     * Preference order:
-     *  1. the VPN network whenever one exists — binding here forces traffic into the
-     *     tunnel even if the tether link took over as default. Binding to a physical
-     *     WAN while a VPN is up would *bypass* the tunnel (the original bug).
-     *  2. a validated WAN network when there is no VPN (normal sharing).
-     *  3. null, meaning "let Android choose".
-     */
     fun preferredRoute(context: Context): Network? {
         val report = enumerate(context)
         report.vpnNetworks.firstOrNull()?.let { return it }
-        report.wanNetworks.firstOrNull()?.let { return it }
+        // When there is no explicit VPN network, return null so standard sockets
+        // use Android's active default network. This ensures when a VPN is started mid-session,
+        // sockets automatically route through the VPN tunnel rather than staying pinned to physical WAN.
         return null
     }
 }
