@@ -31,15 +31,18 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.netbridge.share.R
@@ -102,14 +105,16 @@ fun ShareScreen() {
                     color = TextSecondary
                 )
                 Spacer(Modifier.height(10.dp))
-                Text(
-                    text = state.pairingCode,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 44.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 8.sp,
-                    color = Brand
-                )
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Text(
+                        text = ShareManager.normalizeLatinDigits(state.pairingCode),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 44.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 8.sp,
+                        color = Brand
+                    )
+                }
                 Spacer(Modifier.height(14.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedButton(

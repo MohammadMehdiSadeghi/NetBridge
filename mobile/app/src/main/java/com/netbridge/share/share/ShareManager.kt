@@ -80,10 +80,11 @@ object ShareManager {
     fun init(context: Context, settingsStore: SettingsStore) {
         appContext = context.applicationContext
         store = settingsStore
-        val code = store.pairingCode.ifEmpty { newPairingCode().also { store.pairingCode = it } }
+        val rawCode = store.pairingCode.ifEmpty { newPairingCode().also { store.pairingCode = it } }
+        val code = normalizeLatinDigits(rawCode).also { store.pairingCode = it }
         val token = store.apiToken.ifEmpty {
             ByteArray(24).also { random.nextBytes(it) }
-                .joinToString("") { "%02x".format(it) }
+                .joinToString("") { String.format(java.util.Locale.US, "%02x", it) }
                 .also { store.apiToken = it }
         }
         _state.value = State(
@@ -178,7 +179,7 @@ object ShareManager {
         val server = ControlApiServer(
             port = store.controlPort,
             verifyPair = { code ->
-                if (code == store.pairingCode) store.apiToken else null
+                if (normalizeLatinDigits(code.trim()) == normalizeLatinDigits(store.pairingCode.trim())) store.apiToken else null
             },
             readToken = { store.apiToken },
             onCommand = { cmd ->
@@ -363,7 +364,7 @@ object ShareManager {
 
     private fun newPairingCode(): String {
         val n = random.nextInt(1_000_000)
-        return "%06d".format(n)
+        return String.format(java.util.Locale.US, "%06d", n)
     }
 
     private fun refreshClientCount() {
@@ -380,5 +381,18 @@ object ShareManager {
     fun bindNsd(advertiser: NsdHolder) {
         nsdAdvertiser = advertiser
         advertiser.register(store.controlPort)
+    }
+
+    fun normalizeLatinDigits(input: String): String {
+        val sb = StringBuilder(input.length)
+        for (ch in input) {
+            when (ch) {
+                in '0'..'9' -> sb.append(ch)
+                in '۰'..'۹' -> sb.append((ch - '۰' + '0'.code).toChar())
+                in '٠'..'٩' -> sb.append((ch - '٠' + '0'.code).toChar())
+                else -> sb.append(ch)
+            }
+        }
+        return sb.toString()
     }
 }

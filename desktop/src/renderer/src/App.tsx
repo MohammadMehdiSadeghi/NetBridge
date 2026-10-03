@@ -33,6 +33,13 @@ import {
 
 type Tab = 'home' | 'device' | 'guide' | 'settings'
 
+function toLatinDigits(str: string): string {
+  return str
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+    .replace(/\D/g, '')
+}
+
 export default function App(): JSX.Element {
   const netbridge = useNetBridge()
   const { state } = netbridge
@@ -465,10 +472,11 @@ function DeviceView({ netbridge }: { netbridge: NetBridgeHook }): JSX.Element {
   const strings = t()
 
   const doPair = async (): Promise<void> => {
-    if (code.trim().length !== 6) return
+    const cleanCode = toLatinDigits(code).trim()
+    if (cleanCode.length !== 6) return
     setBusy(true)
     try {
-      await netbridge.pair(code)
+      await netbridge.pair(cleanCode)
     } finally {
       setBusy(false)
     }
@@ -561,7 +569,7 @@ function DeviceView({ netbridge }: { netbridge: NetBridgeHook }): JSX.Element {
               placeholder="······"
               maxLength={6}
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+              onChange={(e) => setCode(toLatinDigits(e.target.value))}
               dir="ltr"
             />
             <button

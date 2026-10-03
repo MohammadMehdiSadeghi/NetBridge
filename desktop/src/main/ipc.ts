@@ -236,6 +236,11 @@ export class AppController {
   async pairWithCode(code: string): Promise<void> {
     const host = this.state.phoneHost
     if (!host) this.fail('select_phone_first')
+    const cleanCode = code
+      .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+      .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+      .replace(/\D/g, '')
+      .trim()
     this.patch({ connecting: true, error: null })
     // Fail fast with a clear code instead of a raw AbortError from fetch.
     // 2.5s (not 1.5s) so a busy phone on USB enum still gets a chance.
@@ -245,7 +250,7 @@ export class AppController {
       )
     }
     try {
-      const token = await apiPair(host, code.trim())
+      const token = await apiPair(host, cleanCode)
       await this.store.save({ token })
       this.patch({ paired: true, connecting: false, error: null })
       await this.refreshPhone()
