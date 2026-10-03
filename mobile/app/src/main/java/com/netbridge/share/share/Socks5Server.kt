@@ -201,60 +201,55 @@ class Socks5Server(
 
     private suspend fun pipe(client: Socket, upstream: Socket, id: Long, peer: String) =
         kotlinx.coroutines.coroutineScope {
-            val j1 = launch(kotlinx.coroutines.Dispatchers.IO) {
+            val j1 = launch {
                 try {
-                    copy(upstream.getInputStream(), client.getOutputStream(), peer, up = false)
+                    copyStream(upstream.getInputStream(), client.getOutputStream(), peer, up = false)
+                } catch (_: Exception) {
                 } finally {
-                    closeQuietly(client, upstream)
+                    try { client.shutdownOutput() } catch (_: Exception) {}
                 }
             }
-            val j2 = launch(kotlinx.coroutines.Dispatchers.IO) {
+            val j2 = launch {
                 try {
-                    copy(client.getInputStream(), upstream.getOutputStream(), peer, up = true)
+                    copyStream(client.getInputStream(), upstream.getOutputStream(), peer, up = true)
+                } catch (_: Exception) {
                 } finally {
-                    closeQuietly(client, upstream)
+                    try { upstream.shutdownOutput() } catch (_: Exception) {}
                 }
             }
             j1.join()
             j2.join()
         }
 
-    private fun copy(input: InputStream, output: OutputStream, peer: String, up: Boolean) {
+    private fun copyStream(input: InputStream, output: OutputStream, peer: String, up: Boolean) {
         val buf = ByteArray(32768)
-        try {
-            while (true) {
-                val n = input.read(buf)
-                if (n <= 0) break
-                output.write(buf, 0, n)
-                output.flush()
-                onEvent(
-                    if (up) Event.Traffic(peer, up = n.toLong(), down = 0)
-                    else Event.Traffic(peer, up = 0, down = n.toLong())
-                )
-            }
-        } catch (_: Exception) {
-        } finally {
-            closeQuietly(input, output)
+        while (true) {
+            val n = input.read(buf)
+            if (n <= 0) break
+            output.write(buf, 0, n)
+            output.flush()
+            onEvent(
+                if (up) Event.Traffic(peer, up = n.toLong(), down = 0)
+                else Event.Traffic(peer, up = 0, down = n.toLong())
+            )
         }
     }
 
     private fun connectUpstream(host: String, port: Int): Socket? {
-        val net = route()
-        if (net != null) {
-            try {
-                val s = net.socketFactory.createSocket() as Socket
-                s.tcpNoDelay = true
-                s.connect(InetSocketAddress(host, port), 6_000)
-                return s
-            } catch (_: Exception) {
-                cachedRoute = null
-            }
-        }
         return try {
-            val s = Socket()
-            s.tcpNoDelay = true
-            s.connect(InetSocketAddress(host, port), 6_000)
-            s
+            val addresses = InetAddress.getAllByName(host)
+            val sorted = addresses.sortedBy { if (it is java.net.Inet4Address) 0 else 1 }
+            for (addr in sorted) {
+                try {
+                    val s = Socket()
+                    s.tcpNoDelay = true
+                    s.soTimeout = 0
+                    s.connect(InetSocketAddress(addr, port), 4_000)
+                    return s
+                } catch (_: Exception) {
+                }
+            }
+            null
         } catch (_: Exception) {
             null
         }

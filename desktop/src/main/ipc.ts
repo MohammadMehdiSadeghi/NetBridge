@@ -254,10 +254,60 @@ export class AppController {
     }
   }
 
+  private async findReachablePhoneWithToken(token: string): Promise<{ host: string; status: any } | null> {
+    const candidateHosts = new Set<string>()
+    if (this.state.phoneHost) candidateHosts.add(this.state.phoneHost)
+    for (const c of this.state.candidates) candidateHosts.add(c.address)
+    candidateHosts.add('192.168.43.1')
+    candidateHosts.add('192.168.42.129')
+    candidateHosts.add('192.168.42.1')
+    candidateHosts.add('172.20.10.1')
+    candidateHosts.add('192.168.137.1')
+    candidateHosts.add('192.168.8.1')
+
+    try {
+      const ifaces = os.networkInterfaces()
+      for (const list of Object.values(ifaces)) {
+        if (!list) continue
+        for (const iface of list) {
+          if (iface.family === 'IPv4' && !iface.internal) {
+            const parts = iface.address.split('.')
+            if (parts.length === 4) {
+              const prefix = `${parts[0]}.${parts[1]}.${parts[2]}`
+              candidateHosts.add(`${prefix}.1`)
+              candidateHosts.add(`${prefix}.129`)
+            }
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    for (const host of candidateHosts) {
+      try {
+        const status = await getStatus(host, token)
+        return { host, status }
+      } catch {
+        // try next candidate
+      }
+    }
+    return null
+  }
+
   async refreshPhone(): Promise<void> {
-    const host = this.state.phoneHost
+    let host = this.state.phoneHost
     const token = this.store.get().token
-    if (!host || !token) return
+    if (!token) return
+    if (!host) {
+      const found = await this.findReachablePhoneWithToken(token)
+      if (found) {
+        host = found.host
+        await this.selectPhone(host)
+      } else {
+        return
+      }
+    }
     try {
       const status = await getStatus(host, token)
       this.chain.setPhone(host, status.httpPort)
@@ -274,13 +324,16 @@ export class AppController {
       })
     } catch (e) {
       const msg = (e as Error).message
-      // Token invalidated (phone reinstall / recycle) — drop it so the UI
-      // asks for a new code instead of looping on phone_unreachable::unauthorized.
       if (/unauthorized|invalid token|HTTP 401/i.test(msg)) {
         await this.store.save({ token: '' })
         this.patch({ paired: false })
+        return
       }
-      // else: keep last known state; poll will retry
+      // If host became unreachable, try probing other known interfaces
+      const found = await this.findReachablePhoneWithToken(token)
+      if (found && found.host !== host) {
+        await this.selectPhone(found.host)
+      }
     }
 
     // Per-client detail is a second round trip and is only meaningful while
@@ -333,17 +386,26 @@ export class AppController {
       this.patch({ systemProxyOn: false })
     }
 
+    let host = this.state.phoneHost
     let status: Awaited<ReturnType<typeof getStatus>>
     try {
-      status = await getStatus(this.state.phoneHost, s.token)
+      status = await getStatus(host, s.token)
     } catch (e) {
-      await disarm()
-      const msg = (e as Error).message
-      if (/unauthorized|invalid token|HTTP 401/i.test(msg)) {
-        await this.store.save({ token: '' })
-        this.patch({ paired: false })
+      // Primary host failed, try auto-discovering on other interfaces/fallbacks
+      const found = await this.findReachablePhoneWithToken(s.token)
+      if (found) {
+        host = found.host
+        status = found.status
+        await this.selectPhone(host)
+      } else {
+        await disarm()
+        const msg = (e as Error).message
+        if (/unauthorized|invalid token|HTTP 401/i.test(msg)) {
+          await this.store.save({ token: '' })
+          this.patch({ paired: false })
+        }
+        this.fail(`phone_unreachable::${msg}`)
       }
-      this.fail(`phone_unreachable::${msg}`)
     }
 
     // Shut down any stale tunnel before touching the system proxy again.
@@ -362,7 +424,7 @@ export class AppController {
 
       if (!status.sharing) {
         try {
-          await startSharing(this.state.phoneHost, s.token)
+          await startSharing(host, s.token)
         } catch (e) {
           await disarm()
           await this.chain.stop()
@@ -370,13 +432,13 @@ export class AppController {
         }
         // Re-read: /start used to return ok:true even when bind failed.
         try {
-          status = await getStatus(this.state.phoneHost, s.token)
+          status = await getStatus(host, s.token)
         } catch {
           /* keep previous status; http probe below is the real gate */
         }
       }
 
-      this.chain.setPhone(this.state.phoneHost, status.httpPort)
+      this.chain.setPhone(host, status.httpPort)
       this.patch({
         phoneHttpPort: status.httpPort,
         phoneSharing: status.sharing,
@@ -387,17 +449,25 @@ export class AppController {
         phoneWarning: status.warning
       })
 
-      // Sharing with no reachable address means the PC has no route to the phone.
-      if (status.ips.length === 0) {
-        this.patch({ error: 'no_connectable_address' })
+      // The data path must accept TCP before we claim connected.
+      const httpPort = status.httpPort || this.state.phoneHttpPort || 8080
+      let proxyOk = await probeHttp(host, httpPort, 2500)
+
+      if (!proxyOk && status.ips?.length) {
+        // If current host didn't respond to proxy probe, test IPs from phone status
+        for (const altIp of status.ips) {
+          if (altIp !== host && (await probeHttp(altIp, httpPort, 1500))) {
+            host = altIp
+            await this.selectPhone(host)
+            proxyOk = true
+            break
+          }
+        }
       }
 
-      // The data path must accept TCP before we claim connected. Local listen
-      // alone was green while every request got 502 Phone Unreachable.
-      const httpPort = status.httpPort || this.state.phoneHttpPort || 8080
-      if (!(await probeHttp(this.state.phoneHost, httpPort, 2500))) {
+      if (!proxyOk) {
         throw new Error(
-          `phone_proxy_unreachable::${this.state.phoneHost}:${httpPort} is not accepting connections — check that sharing is on in the phone app`
+          `phone_proxy_unreachable::${host}:${httpPort} is not accepting connections — check that sharing is on in the phone app`
         )
       }
 

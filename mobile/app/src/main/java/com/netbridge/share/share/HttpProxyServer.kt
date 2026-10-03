@@ -7,6 +7,7 @@ import java.io.ByteArrayOutputStream
 import java.io.EOFException
 import java.io.InputStream
 import java.io.OutputStream
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
@@ -240,65 +241,61 @@ class HttpProxyServer(
 
     private suspend fun pipe(client: Socket, upstream: Socket, id: Long, peer: String) =
         kotlinx.coroutines.coroutineScope {
-            val j1 = launch(kotlinx.coroutines.Dispatchers.IO) {
+            val j1 = launch {
                 try {
-                    copy(upstream.getInputStream(), client.getOutputStream(), peer, up = false)
+                    copyStream(upstream.getInputStream(), client.getOutputStream(), peer, up = false)
+                } catch (_: Exception) {
                 } finally {
-                    closeQuietly(client, upstream)
+                    try { client.shutdownOutput() } catch (_: Exception) {}
                 }
             }
-            val j2 = launch(kotlinx.coroutines.Dispatchers.IO) {
+            val j2 = launch {
                 try {
-                    copy(client.getInputStream(), upstream.getOutputStream(), peer, up = true)
+                    copyStream(client.getInputStream(), upstream.getOutputStream(), peer, up = true)
+                } catch (_: Exception) {
                 } finally {
-                    closeQuietly(client, upstream)
+                    try { upstream.shutdownOutput() } catch (_: Exception) {}
                 }
             }
             j1.join()
             j2.join()
         }
 
-    private fun copy(input: InputStream, output: OutputStream, peer: String, up: Boolean) {
+    private fun copyStream(input: InputStream, output: OutputStream, peer: String, up: Boolean) {
         val buf = ByteArray(32768)
-        try {
-            while (true) {
-                val n = input.read(buf)
-                if (n <= 0) break
-                output.write(buf, 0, n)
-                output.flush()
-                onEvent(
-                    if (up) Event.Traffic(peer, up = n.toLong(), down = 0)
-                    else Event.Traffic(peer, up = 0, down = n.toLong())
-                )
-            }
-        } catch (_: Exception) {
-        } finally {
-            closeQuietly(input, output)
+        while (true) {
+            val n = input.read(buf)
+            if (n <= 0) break
+            output.write(buf, 0, n)
+            output.flush()
+            onEvent(
+                if (up) Event.Traffic(peer, up = n.toLong(), down = 0)
+                else Event.Traffic(peer, up = 0, down = n.toLong())
+            )
         }
     }
 
     /**
-     * Open the outbound socket on the tunnel-carrying network when one is known.
-     * On bind failure we fall back to a plain Socket (Android default route) —
-     * never to a physical WAN, which would bypass an active VPN.
+     * Connect outbound to target host and port.
+     * When VPN is active, standard Sockets naturally route through Android's active VPN tunnel.
+     * Prioritizes IPv4 addresses to avoid 5s dual-stack timeouts on mobile networks.
      */
     private fun connectUpstream(host: String, port: Int): Socket? {
-        val net = route()
-        if (net != null) {
-            try {
-                val s = net.socketFactory.createSocket() as Socket
-                s.tcpNoDelay = true
-                s.connect(InetSocketAddress(host, port), 6_000)
-                return s
-            } catch (_: Exception) {
-                cachedRoute = null
-            }
-        }
         return try {
-            val s = Socket()
-            s.tcpNoDelay = true
-            s.connect(InetSocketAddress(host, port), 6_000)
-            s
+            val addresses = InetAddress.getAllByName(host)
+            val sorted = addresses.sortedBy { if (it is java.net.Inet4Address) 0 else 1 }
+            for (addr in sorted) {
+                try {
+                    val s = Socket()
+                    s.tcpNoDelay = true
+                    s.soTimeout = 0
+                    s.connect(InetSocketAddress(addr, port), 4_000)
+                    return s
+                } catch (_: Exception) {
+                    // Try next address if multi-homed
+                }
+            }
+            null
         } catch (_: Exception) {
             null
         }
@@ -328,6 +325,11 @@ class HttpProxyServer(
         fun parseAuthority(target: String, defaultPort: Int): Pair<String, Int> {
             val t = target.removePrefix("http://").removePrefix("https://")
             val hostPort = t.substringBefore("/")
+            if (hostPort.startsWith("[")) {
+                val h = hostPort.substringAfter("[").substringBefore("]")
+                val p = hostPort.substringAfter("]:", "").toIntOrNull() ?: defaultPort
+                return h to p
+            }
             if (hostPort.contains(":")) {
                 val h = hostPort.substringBefore(":")
                 val p = hostPort.substringAfter(":").toIntOrNull() ?: defaultPort

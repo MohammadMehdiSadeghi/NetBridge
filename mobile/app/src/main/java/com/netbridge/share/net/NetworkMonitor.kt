@@ -94,7 +94,7 @@ class NetworkMonitor(private val context: Context) {
         val report = Interfaces.enumerate(context)
         val usb = Interfaces.isUsbTetherUp()
         val hotspot = Interfaces.names().any { n ->
-            listOf("ap", "swlan", "softap", "wlan1").any { n.startsWith(it) }
+            listOf("ap", "swlan", "softap", "wlan1", "wlan").any { n.startsWith(it, ignoreCase = true) }
         }
         val transport = when {
             usb -> Transport.USB_TETHER

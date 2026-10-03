@@ -19,12 +19,12 @@ object Interfaces {
     /** IPv4 addresses Android created for USB tethering — present iff tethering is on. */
     private val USB_IFACE_HINTS = listOf("rndis", "usb", "ncm", "ecm")
 
-    private val WIFI_TETHER_HINTS = listOf("ap", "swlan", "softap", "wlan1")
+    private val WIFI_TETHER_HINTS = listOf("ap", "swlan", "softap", "wlan1", "wlan")
 
     /** Modes that mean "this end is the one that dials out", not the one we plug the PC into. */
-    private val WAN_IFACE_HINTS = listOf("rmnet", "ccmni", "pdp", "wwan", "ppp")
+    private val WAN_IFACE_HINTS = listOf("rmnet", "ccmni", "pdp", "wwan", "ppp", "radio", "ril", "cellular")
 
-    private val TUN_HINTS = listOf("tun", "tap", "utun", "ppp")
+    private val TUN_HINTS = listOf("tun", "tap", "utun", "ppp", "wg", "wireguard", "vpn", "ipsec", "dummy", "sit")
 
     data class Iface(
         val name: String,
@@ -48,7 +48,7 @@ object Interfaces {
                 for (addr in addrs) {
                     if (addr !is Inet4Address || addr.isLoopbackAddress) continue
                     val ip = addr.hostAddress ?: continue
-                    if (ip.startsWith("169.254.")) continue
+                    if (ip.startsWith("169.254.") || ip.startsWith("127.")) continue
                     out.add(
                         Iface(
                             name = nif.name,
@@ -87,7 +87,7 @@ object Interfaces {
      */
     fun isTetherUp(context: Context): Boolean {
         val present = names()
-        if (present.any { n -> USB_IFACE_HINTS.any { n.startsWith(it) } }) return true
+        if (present.any { n -> USB_IFACE_HINTS.any { n.startsWith(it, ignoreCase = true) } }) return true
         return try {
             val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             cm.isActiveNetworkMetered && cm.activeNetwork == null
@@ -98,7 +98,7 @@ object Interfaces {
 
     fun isUsbTetherUp(): Boolean {
         val present = names()
-        return present.any { n -> USB_IFACE_HINTS.any { n.startsWith(it) } }
+        return present.any { n -> USB_IFACE_HINTS.any { n.startsWith(it, ignoreCase = true) } }
     }
 
     /**
@@ -108,26 +108,27 @@ object Interfaces {
      */
     fun shareAddresses(): List<String> {
         val ifaces = listIpv4()
-        val preferred = ifaces.filter { i ->
-            val n = i.name
+        // Strictly exclude any VPN tunnels and cellular WAN uplinks
+        val nonTunnel = ifaces
+            .filterNot { i -> isTunnel(i.name) }
+            .filterNot { i -> WAN_IFACE_HINTS.any { i.name.startsWith(it, ignoreCase = true) } }
+
+        val preferred = nonTunnel.filter { i ->
+            val n = i.name.lowercase()
             (WIFI_TETHER_HINTS + USB_IFACE_HINTS).any { n.startsWith(it) }
         }
         if (preferred.isNotEmpty()) return preferred.map { it.address }.distinct()
-        return ifaces
-            .filterNot { i -> WAN_IFACE_HINTS.any { i.name.startsWith(it) } }
-            .filterNot { i -> TUN_HINTS.any { i.name.startsWith(it) } }
-            .map { it.address }
-            .distinct()
+        return nonTunnel.map { it.address }.distinct()
     }
 
     /** True when this interface is one Windows would consider the PC-facing link. */
     fun isShareLink(name: String): Boolean {
-        val base = name.substringBefore(':')
+        val base = name.substringBefore(':').lowercase()
         return (WIFI_TETHER_HINTS + USB_IFACE_HINTS).any { base.startsWith(it) }
     }
 
     fun isTunnel(name: String): Boolean {
-        val base = name.substringBefore(':')
+        val base = name.substringBefore(':').lowercase()
         return TUN_HINTS.any { base.startsWith(it) }
     }
 
@@ -230,13 +231,10 @@ object Interfaces {
 
     /**
      * Does this device currently have a usable route to the internet on its own?
-     *
-     * A "VPN only" tunnel with no validated underlying network cannot carry traffic:
-     * the tunnel exists but has nothing to send through. Reporting this separately is
-     * what lets the app say "turn the VPN off" instead of silently sharing nothing.
      */
     fun hasInternetUplink(context: Context): Boolean {
         val report = enumerate(context)
+        if (report.vpnActive) return true
         if (report.wanNetworks.isEmpty()) return false
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         return try {
@@ -251,11 +249,9 @@ object Interfaces {
     }
 
     fun preferredRoute(context: Context): Network? {
-        val report = enumerate(context)
-        report.vpnNetworks.firstOrNull()?.let { return it }
-        // When there is no explicit VPN network, return null so standard sockets
-        // use Android's active default network. This ensures when a VPN is started mid-session,
-        // sockets automatically route through the VPN tunnel rather than staying pinned to physical WAN.
+        // In Android, standard Sockets automatically route through the active default network,
+        // which is the VPN tunnel when VPN is active.
+        // Returning null ensures Sockets naturally traverse the active VPN tunnel without EPERM errors.
         return null
     }
 }

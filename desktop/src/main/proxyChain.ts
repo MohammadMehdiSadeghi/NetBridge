@@ -89,10 +89,12 @@ export class ProxyChain {
     this.sockets.add(client)
     this.stats.connections += 1
 
+    client.setNoDelay(true)
     const upstream = net.connect({
       host: this.phoneHost,
       port: this.phonePort
     })
+    upstream.setNoDelay(true)
     upstream.setTimeout(15_000)
 
     let bridged = false
@@ -109,6 +111,8 @@ export class ProxyChain {
     upstream.once('connect', () => {
       bridged = true
       upstream.setTimeout(0)
+      client.setKeepAlive(true, 10_000)
+      upstream.setKeepAlive(true, 10_000)
 
       client.on('data', (chunk) => {
         this.stats.bytesIn += chunk.length
