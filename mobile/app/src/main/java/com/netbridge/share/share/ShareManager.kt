@@ -106,6 +106,7 @@ object ShareManager {
                 .joinToString("") { String.format(java.util.Locale.US, "%02x", it) }
                 .also { store.apiToken = it }
         }
+        // A full reset is intentional here: this is the one place that seeds the state.
         _state.value = State(
             httpPort = store.httpPort,
             socksPort = store.socksPort,
@@ -154,13 +155,15 @@ object ShareManager {
             val monitor = NetworkMonitor(ctx)
             monitor.observe().collect { snapshot ->
                 val warning = buildWarning(snapshot)
-                _state.value = _state.value.copy(
-                    vpnActive = snapshot.vpnActive,
-                    internetReachable = snapshot.internetReachable,
-                    transport = snapshot.transport,
-                    ips = snapshot.ips,
-                    warning = warning
-                )
+                _state.update {
+                    it.copy(
+                        vpnActive = snapshot.vpnActive,
+                        internetReachable = snapshot.internetReachable,
+                        transport = snapshot.transport,
+                        ips = snapshot.ips,
+                        warning = warning
+                    )
+                }
             }
         }
     }
@@ -203,14 +206,14 @@ object ShareManager {
                     ControlApiServer.Command.RECYCLE -> {
                         val c = newPairingCode()
                         store.pairingCode = c
-                        _state.value = _state.value.copy(pairingCode = c)
+                        _state.update { it.copy(pairingCode = c) }
                         c
                     }
                 }
             },
             appContext = ctx,
             onDied = {
-                _state.value = _state.value.copy(controlAlive = false)
+                _state.update { it.copy(controlAlive = false) }
                 scope.launch {
                     kotlinx.coroutines.delay(500)
                     startControl(fromRestart = true)
@@ -219,10 +222,12 @@ object ShareManager {
         )
         controlServer = server
         val bound = server.start()
-        _state.value = _state.value.copy(
-            controlAlive = bound,
-            error = if (bound) null else "control API failed to bind :${store.controlPort}"
-        )
+        _state.update {
+            it.copy(
+                controlAlive = bound,
+                error = if (bound) null else "control API failed to bind :${store.controlPort}"
+            )
+        }
     }
 
     /**
@@ -247,9 +252,9 @@ object ShareManager {
         )
 
         if (!http.start()) {
-            _state.value = _state.value.copy(
-                error = ctx.getString(R.string.error_proxy) + " :${store.httpPort}"
-            )
+            _state.update {
+                it.copy(error = ctx.getString(R.string.error_proxy) + " :${store.httpPort}")
+            }
             return false
         }
         // SOCKS is optional for the desktop path; a busy port must not block sharing.
@@ -258,7 +263,7 @@ object ShareManager {
         httpServer = http
         socksServer = socks
         startControl()
-        _state.value = _state.value.copy(sharing = true, error = null)
+        _state.update { it.copy(sharing = true, error = null) }
 
         if (background) {
             val intent = Intent(ctx, ShareService::class.java)
@@ -284,8 +289,7 @@ object ShareManager {
                 ClientRegistry.onTraffic(ev.peer, ev.up, ev.down)
                 addBytes(ev.up, ev.down)
             }
-            is HttpProxyServer.Event.Error -> _state.value =
-                _state.value.copy(error = ev.message)
+            is HttpProxyServer.Event.Error -> _state.update { it.copy(error = ev.message) }
             is HttpProxyServer.Event.Stopped -> {
                 // The accept loop died on its own, so nothing is listening on the HTTP
                 // port any more. Leaving `sharing` true made /api/v1/start answer
@@ -293,7 +297,7 @@ object ShareManager {
                 httpServer = null
                 socksServer?.stop()
                 socksServer = null
-                _state.value = _state.value.copy(sharing = false, clients = 0, error = ev.reason)
+                _state.update { it.copy(sharing = false, clients = 0, error = ev.reason) }
             }
         }
     }
@@ -312,8 +316,7 @@ object ShareManager {
                 ClientRegistry.onTraffic(ev.peer, ev.up, ev.down)
                 addBytes(ev.up, ev.down)
             }
-            is Socks5Server.Event.Error -> _state.value =
-                _state.value.copy(error = ev.message)
+            is Socks5Server.Event.Error -> _state.update { it.copy(error = ev.message) }
             is Socks5Server.Event.Stopped -> {
                 // SOCKS is optional for the desktop path, so a dead accept loop only
                 // means we forget the instance — sharing itself stays up.
@@ -327,7 +330,7 @@ object ShareManager {
         socksServer?.stop()
         httpServer = null
         socksServer = null
-        _state.value = _state.value.copy(sharing = false, clients = 0)
+        _state.update { it.copy(sharing = false, clients = 0) }
         appContext?.let { ctx ->
             val intent = Intent(ctx, ShareService::class.java)
             try {
@@ -347,16 +350,14 @@ object ShareManager {
         if (wasSharing) stopSharing()
         if (wasControl) {
             controlServer?.stop()
-            _state.value = _state.value.copy(controlAlive = false)
+            _state.update { it.copy(controlAlive = false) }
         }
         store.httpPort = http
         store.socksPort = socks
         store.controlPort = control
-        _state.value = _state.value.copy(
-            httpPort = http,
-            socksPort = socks,
-            controlPort = control
-        )
+        _state.update {
+            it.copy(httpPort = http, socksPort = socks, controlPort = control)
+        }
         startControl()
         // Re-register the mDNS record so the new control port is advertised.
         nsdAdvertiser?.let {
@@ -369,12 +370,12 @@ object ShareManager {
     fun recycleCode(): String {
         val c = newPairingCode()
         store.pairingCode = c
-        _state.value = _state.value.copy(pairingCode = c)
+        _state.update { it.copy(pairingCode = c) }
         return c
     }
 
     fun clearError() {
-        _state.value = _state.value.copy(error = null)
+        _state.update { it.copy(error = null) }
     }
 
     fun clients(): List<ClientRegistry.Client> = ClientRegistry.snapshot()
@@ -392,7 +393,8 @@ object ShareManager {
     }
 
     private fun refreshClientCount() {
-        _state.value = _state.value.copy(clients = ClientRegistry.activeCount())
+        val active = ClientRegistry.activeCount()
+        _state.update { it.copy(clients = active) }
     }
 
     private fun addBytes(fromClient: Long, toClient: Long) {
@@ -402,6 +404,8 @@ object ShareManager {
         val outNow = bytesOutTotal.get()
         // `maxOf` keeps the published counters monotonic: the atomics are the source of
         // truth, so an interleaved writer can never move the visible total backwards.
+        // Every other writer uses `update {}` too — a plain `value = value.copy(...)`
+        // would read a stale snapshot and clobber whatever addBytes just published.
         _state.update {
             it.copy(
                 bytesIn = maxOf(it.bytesIn, inNow),

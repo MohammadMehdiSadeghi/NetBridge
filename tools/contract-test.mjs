@@ -430,5 +430,34 @@ check('the System Proxy toggle reflects the persisted setting', () => {
   )
 })
 
+check('the dev CSP override still matches the HTML it rewrites', () => {
+  const html = read('desktop/src/renderer/index.html')
+  const cfg = read('desktop/electron.vite.config.ts')
+
+  const prod = /const PROD_CSP =\s*\n?\s*"([^"]+)"/.exec(cfg)
+  assert.ok(prod, 'PROD_CSP is no longer a plain string literal the plugin can match on')
+  assert.ok(
+    html.includes(prod[1]),
+    'PROD_CSP in electron.vite.config.ts no longer appears verbatim in index.html, so the ' +
+      'dev override silently does nothing and Vite\'s inline Fast Refresh preamble stays blocked'
+  )
+  assert.ok(
+    /const DEV_CSP =[\s\S]*?unsafe-inline/.test(cfg),
+    'DEV_CSP no longer allows inline scripts, so dev mode cannot run the React preamble'
+  )
+  assert.ok(
+    /apply:\s*'serve'/.test(cfg),
+    'the CSP override is no longer restricted to the dev server'
+  )
+})
+
+check('the desktop drops an unreadable stored credential instead of retrying it', () => {
+  const src = read('desktop/src/main/store.ts')
+  assert.ok(
+    /unreadable[\s\S]{0,400}?await this\.write\(\)/.test(src),
+    'load() keeps a tokenEnc it cannot decrypt, so the app retries it on every launch'
+  )
+})
+
 console.log(`\n${pass} passed, ${fail} failed\n`)
 process.exit(fail === 0 ? 0 : 1)

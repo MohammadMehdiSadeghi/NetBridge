@@ -28,8 +28,14 @@ object Interfaces {
      */
     private val WIFI_AP_HINTS = listOf("ap", "swlan", "softap")
 
-    /** Hotspots that reuse the Wi-Fi driver expose `wlan1`, `wlan2`, … — never `wlan0`. */
-    private val WIFI_AP_WLAN = Regex("^wlan[1-9][0-9]*$")
+    /**
+     * Hotspots that reuse the Wi-Fi driver expose `wlan1`, `wlan2`, … — never `wlan0`.
+     *
+     * Used with [Regex.matches], which requires the *entire* input to match, so no
+     * `^`/`$` anchors are needed (and a trailing `$` in a Kotlin string literal is a
+     * needless ambiguity with string templates).
+     */
+    private val WIFI_AP_WLAN = Regex("wlan[1-9][0-9]*")
 
     /** Modes that mean "this end is the one that dials out", not the one we plug the PC into. */
     private val WAN_IFACE_HINTS =

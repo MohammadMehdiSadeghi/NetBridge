@@ -48,10 +48,17 @@ export class Store {
     const merged: Settings = { ...DEFAULTS, ...rest }
     // The pairing token is a bearer credential for the phone's control API. Never
     // leave it in plain text on disk when the OS can hold the key for us.
+    let unreadable = false
     if (!merged.token && tokenEnc) {
       merged.token = this.decrypt(tokenEnc)
+      unreadable = merged.token === ''
     }
     this.data = merged
+    if (unreadable) {
+      // The stored credential cannot be read any more (different OS user, reinstall).
+      // Drop it so we stop retrying on every launch and the UI cleanly says "not paired".
+      await this.write()
+    }
     return this.data
   }
 

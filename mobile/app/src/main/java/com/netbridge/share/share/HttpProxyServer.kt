@@ -257,7 +257,11 @@ class HttpProxyServer(
                         // Host header it sent rather than inventing a new one.
                         out.write("$k: $v\r\n".toByteArray())
                     }
-                    out.write("Content-Length: ${body.size}\r\n".toByteArray())
+                    // Only declare a length when there is something to declare. A plain
+                    // bodiless GET is forwarded exactly as the client wrote it.
+                    if (body.isNotEmpty() || chunked || declaredLength != null) {
+                        out.write("Content-Length: ${body.size}\r\n".toByteArray())
+                    }
                     out.write("Connection: close\r\n\r\n".toByteArray())
 
                     val upOut = up.getOutputStream()
