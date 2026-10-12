@@ -17,8 +17,6 @@
     <string name="inactive">Inactive</string>
     <string name="copy">Copy</string>
     <string name="copied">Copied</string>
-    <string name="save">Save</string>
-    <string name="saved">Saved ✓</string>
     <string name="saved_toast">Saved</string>
 
     <!-- Transport -->
@@ -59,8 +57,6 @@
     <string name="no_clients_yet">No system has connected yet. If the PC is connected but this is empty, it cannot find this phone — check the hotspot tab for the phone address.</string>
     <string name="connections_count">%d connections</string>
     <string name="connect_steps">Connection checklist</string>
-    <string name="wrong_step_prefix">You went wrong here:</string>
-    <string name="step_ok">OK</string>
     <string name="step_vpn">1. Phone VPN is on (All-apps mode)</string>
     <string name="step_vpn_fail">You went wrong here: phone VPN is off or in selected-apps mode.</string>
     <string name="step_link">2. Hotspot or USB tethering is on</string>

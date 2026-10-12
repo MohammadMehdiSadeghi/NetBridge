@@ -90,72 +90,78 @@ class ControlApiServer(
 
     private fun handle(socket: Socket) {
         try {
-            socket.use { s ->
-                s.soTimeout = 15_000
-                val input = s.getInputStream()
-                val output = s.getOutputStream()
-                val requestLine = HttpProxyServer.readLine(input) ?: return
-                val parts = requestLine.split(" ")
-                if (parts.size < 3) return
-                val method = parts[0]
-                val path = parts[1]
+            socket.soTimeout = 15_000
+            val input = socket.getInputStream()
+            val output = socket.getOutputStream()
+            val requestLine = HttpProxyServer.readLine(input) ?: return
+            val parts = requestLine.split(" ")
+            if (parts.size < 3) return
+            val method = parts[0]
+            val path = parts[1]
 
-                val headers = mutableMapOf<String, String>()
-                while (true) {
-                    val line = HttpProxyServer.readLine(input) ?: break
-                    if (line.isEmpty()) break
-                    val i = line.indexOf(':')
-                    if (i > 0) {
-                        headers[line.substring(0, i).trim().lowercase()] =
-                            line.substring(i + 1).trim()
-                    }
+            val headers = mutableMapOf<String, String>()
+            while (true) {
+                val line = HttpProxyServer.readLine(input) ?: break
+                if (line.isEmpty()) break
+                val i = line.indexOf(':')
+                if (i > 0) {
+                    headers[line.substring(0, i).trim().lowercase()] =
+                        line.substring(i + 1).trim()
                 }
-                val contentLength = headers["content-length"]?.toIntOrNull() ?: 0
-                val bodyBytes = if (contentLength in 0..65_536) {
-                    HttpProxyServer.readFully(input, contentLength)
-                } else {
-                    ByteArray(0)
-                }
-                val bodyText = String(bodyBytes, Charsets.UTF_8)
-
-                val (status, json) = route(method, path, headers, bodyText)
-                val payload = json.toString().toByteArray(Charsets.UTF_8)
-                val statusLine = when (status) {
-                    200 -> "HTTP/1.1 200 OK"
-                    400 -> "HTTP/1.1 400 Bad Request"
-                    401 -> "HTTP/1.1 401 Unauthorized"
-                    404 -> "HTTP/1.1 404 Not Found"
-                    405 -> "HTTP/1.1 405 Method Not Allowed"
-                    else -> "HTTP/1.1 500 Internal Server Error"
-                }
-                val response = buildString {
-                    append(statusLine).append("\r\n")
-                    append("Content-Type: application/json; charset=utf-8\r\n")
-                    append("Content-Length: ").append(payload.size).append("\r\n")
-                    append("Connection: close\r\n")
-                    append("Access-Control-Allow-Origin: *\r\n")
-                    append("\r\n")
-                }.toByteArray()
-                output.write(response)
-                output.write(payload)
-                output.flush()
             }
+            val contentLength = headers["content-length"]?.toIntOrNull() ?: 0
+            val bodyBytes = if (contentLength in 0..65_536) {
+                HttpProxyServer.readFully(input, contentLength)
+            } else {
+                ByteArray(0)
+            }
+            val bodyText = String(bodyBytes, Charsets.UTF_8)
+
+            val (status, json) = route(method, path, headers, bodyText)
+            val payload = json.toString().toByteArray(Charsets.UTF_8)
+            val statusLine = when (status) {
+                200 -> "HTTP/1.1 200 OK"
+                400 -> "HTTP/1.1 400 Bad Request"
+                401 -> "HTTP/1.1 401 Unauthorized"
+                404 -> "HTTP/1.1 404 Not Found"
+                405 -> "HTTP/1.1 405 Method Not Allowed"
+                else -> "HTTP/1.1 500 Internal Server Error"
+            }
+            val response = buildString {
+                append(statusLine).append("\r\n")
+                append("Content-Type: application/json; charset=utf-8\r\n")
+                append("Content-Length: ").append(payload.size).append("\r\n")
+                append("Connection: close\r\n")
+                append("Access-Control-Allow-Origin: *\r\n")
+                append("\r\n")
+            }.toByteArray()
+            output.write(response)
+            output.write(payload)
+            output.flush()
         } catch (_: Exception) {
             // Best-effort 500 so a broken handler does not look like a dead phone
             // (the desktop would otherwise hang until its fetch timeout).
+            //
+            // The socket must still be open here. The previous version wrapped the whole
+            // body in `socket.use { }`, which closed it while unwinding the exception, so
+            // this write always failed and the client saw a bare connection reset.
             try {
-                socket.use { s ->
-                    val body = err("internal error").toString().toByteArray(Charsets.UTF_8)
-                    val head = (
-                        "HTTP/1.1 500 Internal Server Error\r\n" +
-                            "Content-Type: application/json; charset=utf-8\r\n" +
-                            "Content-Length: ${body.size}\r\n" +
-                            "Connection: close\r\n\r\n"
-                        ).toByteArray()
-                    s.getOutputStream().write(head)
-                    s.getOutputStream().write(body)
-                    s.getOutputStream().flush()
-                }
+                val body = err("internal error").toString().toByteArray(Charsets.UTF_8)
+                val head = (
+                    "HTTP/1.1 500 Internal Server Error\r\n" +
+                        "Content-Type: application/json; charset=utf-8\r\n" +
+                        "Content-Length: ${body.size}\r\n" +
+                        "Connection: close\r\n\r\n"
+                    ).toByteArray()
+                val out = socket.getOutputStream()
+                out.write(head)
+                out.write(body)
+                out.flush()
+            } catch (_: Exception) {
+            }
+        } finally {
+            try {
+                socket.close()
             } catch (_: Exception) {
             }
         }

@@ -93,9 +93,7 @@ class NetworkMonitor(private val context: Context) {
     fun snapshot(): NetworkSnapshot {
         val report = Interfaces.enumerate(context)
         val usb = Interfaces.isUsbTetherUp()
-        val hotspot = Interfaces.names().any { n ->
-            listOf("ap", "swlan", "softap", "wlan1", "wlan").any { n.startsWith(it, ignoreCase = true) }
-        }
+        val hotspot = Interfaces.isWifiApUp()
         val transport = when {
             usb -> Transport.USB_TETHER
             hotspot -> Transport.WIFI_HOTSPOT
@@ -103,22 +101,15 @@ class NetworkMonitor(private val context: Context) {
         }
         return NetworkSnapshot(
             vpnActive = report.vpnActive,
-            internetReachable = hasUplink(report),
+            // Only a WAN the OS validated counts. Treating "a VPN network exists" as
+            // proof of internet made `internetReachable` permanently true whenever a VPN
+            // was up, which is exactly the tunnel-with-a-dead-underlay case the UI is
+            // supposed to warn about (see docs/protocol.md).
+            internetReachable = report.hasValidatedWan,
             transport = transport,
             ips = Interfaces.shareAddresses(),
             usbTethering = usb,
             hotspot = hotspot
         )
-    }
-
-    private fun hasUplink(report: Interfaces.NetworkReport): Boolean {
-        if (report.vpnActive) return true
-        if (report.wanNetworks.isNotEmpty()) return true
-        return false
-    }
-
-    companion object {
-        /** Kept for callers that only want raw addresses. */
-        fun localIpv4Addresses(): List<String> = Interfaces.shareAddresses()
     }
 }

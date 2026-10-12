@@ -14,6 +14,7 @@ import com.netbridge.share.R
 import com.netbridge.share.share.ShareManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -21,6 +22,7 @@ import kotlinx.coroutines.launch
 class ShareService : android.app.Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var stateJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -50,7 +52,10 @@ class ShareService : android.app.Service() {
             ShareManager.startSharing(background = false)
         }
 
-        scope.launch {
+        // onStartCommand runs again for every startForegroundService call, so a fresh
+        // collector per call piled up several of them notifying the same notification id.
+        stateJob?.cancel()
+        stateJob = scope.launch {
             ShareManager.state.collect { state ->
                 if (!state.sharing) {
                     stopForeground(STOP_FOREGROUND_REMOVE)

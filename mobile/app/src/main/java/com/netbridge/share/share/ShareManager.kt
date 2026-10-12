@@ -16,8 +16,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.security.SecureRandom
+import java.util.concurrent.atomic.AtomicLong
 
 object ShareManager {
 
@@ -69,6 +71,17 @@ object ShareManager {
     private lateinit var store: SettingsStore
     private val random = SecureRandom()
 
+    /** Guards [init]: it is called from both the Application and BootReceiver. */
+    private var initialized = false
+
+    /**
+     * Traffic totals. These live in atomics rather than in [State] because every tunnel
+     * thread reports bytes concurrently; a read-modify-write on `_state.value` lost
+     * updates whenever two threads interleaved.
+     */
+    private val bytesInTotal = AtomicLong(0)
+    private val bytesOutTotal = AtomicLong(0)
+
     /** Notified after a route change so the native helper can re-resolve. */
     var onRouteChanged: (() -> Unit)? = null
 
@@ -78,6 +91,12 @@ object ShareManager {
     }
 
     fun init(context: Context, settingsStore: SettingsStore) {
+        // BootReceiver re-initialises defensively, but running this twice replaced
+        // `_state` with a fresh State and wiped sharing/clients/byte counters of a
+        // session that was already live.
+        if (initialized) return
+        initialized = true
+
         appContext = context.applicationContext
         store = settingsStore
         val rawCode = store.pairingCode.ifEmpty { newPairingCode().also { store.pairingCode = it } }
@@ -106,14 +125,10 @@ object ShareManager {
             ?: return
         val cb = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                httpServer?.invalidateRoute()
-                socksServer?.invalidateRoute()
                 onRouteChanged?.invoke()
             }
 
             override fun onLost(network: Network) {
-                httpServer?.invalidateRoute()
-                socksServer?.invalidateRoute()
                 onRouteChanged?.invoke()
             }
 
@@ -121,8 +136,6 @@ object ShareManager {
                 network: Network,
                 linkProperties: android.net.LinkProperties
             ) {
-                httpServer?.invalidateRoute()
-                socksServer?.invalidateRoute()
                 onRouteChanged?.invoke()
             }
         }
@@ -153,15 +166,16 @@ object ShareManager {
     }
 
     /**
-     * Stable codes for the two situations that look identical in the UI but need
-     * opposite fixes: a tunnel with no uplink (turn the VPN off) versus no VPN at
-     * all (traffic still flows, just unprotected). The phone UI and the desktop
-     * each resolve the code into their own locale.
+     * Stable codes for the situations that look identical in the UI but need opposite
+     * fixes. The phone UI and the desktop each resolve the code into their own locale.
+     *
+     * Order matters: the most actionable problem is reported first. With no PC-facing
+     * link nothing can connect at all, so "turn the VPN off" would be the wrong advice.
      */
     private fun buildWarning(s: com.netbridge.share.net.NetworkSnapshot): String? {
+        if (s.transport == Transport.NONE) return "no_transport"
         if (!s.internetReachable) return "no_internet"
         if (!s.vpnActive) return "no_vpn"
-        if (s.transport == Transport.NONE) return "no_transport"
         return null
     }
 
@@ -220,30 +234,26 @@ object ShareManager {
         if (_state.value.sharing) return true
 
         ClientRegistry.reset()
+        bytesInTotal.set(0)
+        bytesOutTotal.set(0)
 
         val http = HttpProxyServer(
             port = store.httpPort,
-            onEvent = { ev -> handleEvent(ev) },
-            appContext = ctx
+            onEvent = { ev -> handleEvent(ev) }
         )
         val socks = Socks5Server(
             port = store.socksPort,
-            onEvent = { ev -> handleSocksEvent(ev) },
-            appContext = ctx
+            onEvent = { ev -> handleSocksEvent(ev) }
         )
 
         if (!http.start()) {
             _state.value = _state.value.copy(
                 error = ctx.getString(R.string.error_proxy) + " :${store.httpPort}"
             )
-            socks.stop()
             return false
         }
         // SOCKS is optional for the desktop path; a busy port must not block sharing.
-        try {
-            socks.start()
-        } catch (_: Exception) {
-        }
+        socks.start()
 
         httpServer = http
         socksServer = socks
@@ -276,6 +286,15 @@ object ShareManager {
             }
             is HttpProxyServer.Event.Error -> _state.value =
                 _state.value.copy(error = ev.message)
+            is HttpProxyServer.Event.Stopped -> {
+                // The accept loop died on its own, so nothing is listening on the HTTP
+                // port any more. Leaving `sharing` true made /api/v1/start answer
+                // {"ok": true} for a dead port and turned startSharing() into a no-op.
+                httpServer = null
+                socksServer?.stop()
+                socksServer = null
+                _state.value = _state.value.copy(sharing = false, clients = 0, error = ev.reason)
+            }
         }
     }
 
@@ -295,6 +314,11 @@ object ShareManager {
             }
             is Socks5Server.Event.Error -> _state.value =
                 _state.value.copy(error = ev.message)
+            is Socks5Server.Event.Stopped -> {
+                // SOCKS is optional for the desktop path, so a dead accept loop only
+                // means we forget the instance — sharing itself stays up.
+                socksServer = null
+            }
         }
     }
 
@@ -372,10 +396,18 @@ object ShareManager {
     }
 
     private fun addBytes(fromClient: Long, toClient: Long) {
-        _state.value = _state.value.copy(
-            bytesIn = _state.value.bytesIn + fromClient,
-            bytesOut = _state.value.bytesOut + toClient
-        )
+        if (fromClient > 0) bytesInTotal.addAndGet(fromClient)
+        if (toClient > 0) bytesOutTotal.addAndGet(toClient)
+        val inNow = bytesInTotal.get()
+        val outNow = bytesOutTotal.get()
+        // `maxOf` keeps the published counters monotonic: the atomics are the source of
+        // truth, so an interleaved writer can never move the visible total backwards.
+        _state.update {
+            it.copy(
+                bytesIn = maxOf(it.bytesIn, inNow),
+                bytesOut = maxOf(it.bytesOut, outNow)
+            )
+        }
     }
 
     fun bindNsd(advertiser: NsdHolder) {

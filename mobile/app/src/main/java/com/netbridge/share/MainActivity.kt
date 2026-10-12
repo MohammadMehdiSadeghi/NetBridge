@@ -34,7 +34,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         askNotificationPermission()
-        nsd = NsdAdvertiser(this).also { ShareManager.bindNsd(it) }
+        // A shared instance: this Activity is recreated on rotation, and a fresh
+        // advertiser each time would re-register a service that is already live.
+        nsd = NsdAdvertiser.get(this).also { ShareManager.bindNsd(it) }
 
         setContent {
             NetBridgeTheme {

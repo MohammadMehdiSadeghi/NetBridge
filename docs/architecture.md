@@ -75,13 +75,16 @@ These two states must be told apart, because the fix is completely different:
 
 #### Proxy egress path
 
-Proxy outbound sockets bind with `Network.socketFactory` to the best route:
+Outbound sockets are opened with a plain `Socket()` and are **not** explicitly bound to a
+`Network`. Android routes them through the device's active default network, which is the VPN
+tunnel whenever a VPN is up — that is exactly what makes the shared link inherit the phone's
+VPN with no root.
 
-1. **Whenever a VPN network exists → VPN only.** Explicit bind to physical WAN while VPN is up bypasses the tunnel (the old NetBridge bug).
-2. Without VPN → a validated WAN network (normal sharing).
-3. If neither → `null`, let Android decide.
-
-Source: `Interfaces.preferredRoute()`. A bind failure never rejects the request; it falls back to the default (no-VPN) route. The result is cached for 5 seconds so toggling VPN mid-session is picked up.
+> An earlier revision of this document described binding each socket to a chosen `Network` via
+> `Network.socketFactory` (`Interfaces.preferredRoute()`). That was never wired up: the helper
+> returned `null` and no call site used it, so the code has been removed. If this is ever
+> revisited, remember that binding to the physical WAN while a VPN is up *bypasses* the tunnel —
+> the VPN must always win.
 
 ### 2. Desktop app (`desktop/`)
 

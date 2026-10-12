@@ -632,15 +632,15 @@ function SettingsView({ netbridge }: { netbridge: NetBridgeHook }): JSX.Element 
         </div>
         <button
           className={`relative h-7 w-12 rounded-full transition ${
-            state.systemProxyOn ? 'bg-brand' : 'bg-stroke'
+            state.systemProxySetting ? 'bg-brand' : 'bg-stroke'
           }`}
-          onClick={() => void netbridge.setSystemProxy(!state.systemProxyOn)}
+          onClick={() => void netbridge.setSystemProxy(!state.systemProxySetting)}
         >
           <span
             className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-all ${
               isFa()
-                ? (state.systemProxyOn ? 'right-6' : 'right-1')
-                : (state.systemProxyOn ? 'left-6' : 'left-1')
+                ? (state.systemProxySetting ? 'right-6' : 'right-1')
+                : (state.systemProxySetting ? 'left-6' : 'left-1')
             }`}
           />
         </button>

@@ -17,8 +17,6 @@
     <string name="inactive">غیرفعال</string>
     <string name="copy">کپی</string>
     <string name="copied">کپی شد</string>
-    <string name="save">ذخیره</string>
-    <string name="saved">ذخیره شد ✓</string>
     <string name="saved_toast">ذخیره شد</string>
 
     <!-- Transport -->
@@ -59,8 +57,6 @@
     <string name="no_clients_yet">هنوز هیچ سیستمی وصل نشده. اگر سیستم وصل است ولی اینجا خالی است، یعنی سیستم آدرس گوشی را پیدا نکرده — از برگه هات‌اسپات آدرس گوشی را ببینید.</string>
     <string name="connections_count">%d اتصال</string>
     <string name="connect_steps">چک‌لیست اتصال</string>
-    <string name="wrong_step_prefix">اینجا را اشتباه رفتی:</string>
-    <string name="step_ok">درست</string>
     <string name="step_vpn">۱. VPN گوشی روشن باشد (حالت همه برنامه‌ها)</string>
     <string name="step_vpn_fail">اینجا را اشتباه رفتی: VPN گوشی روشن نیست یا در حالت «برنامه‌های انتخابی» است.</string>
     <string name="step_link">۲. هات‌اسپات یا «اشتراک اینترنت USB» روشن باشد</string>

@@ -234,5 +234,201 @@ check('desktop clears the token on 401 so the user can re-pair', () => {
   )
 })
 
+// ---------------------------------------------------------------------------
+// Regressions found by the 2026-10 audit. Each one is a bug that shipped, so the
+// assertion is written against the *broken* shape, not just the fixed one.
+// ---------------------------------------------------------------------------
+
+/** Comments legitimately quote the broken code; assertions must look at code only. */
+const stripComments = (src) =>
+  src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+
+check('System Proxy restore computes ProxyEnable in JS, not in PowerShell', () => {
+  const sp = stripComments(read('desktop/src/main/systemProxy.ts'))
+  assert.ok(
+    !sp.includes('$previous.enabled'),
+    'clearSystemProxy emits $previous.enabled into the script; PowerShell has no such ' +
+      'variable, so [int]([bool]$null) is always 0 and the user\'s own proxy is disabled'
+  )
+  assert.ok(
+    sp.includes('previous.enabled ? 1 : 0'),
+    'clearSystemProxy no longer computes the enable flag explicitly'
+  )
+})
+
+check('desktop workflow uploads the path the portable target actually produces', () => {
+  const pkg = JSON.parse(read('desktop/package.json'))
+  const raw = pkg.build?.portable?.artifactName
+  assert.ok(raw, 'portable.artifactName is not configured')
+  const real = raw
+    .replace('${productName}', pkg.build.productName)
+    .replace('${version}', pkg.version)
+    .replace('${ext}', 'exe')
+  const glob = real.replace(pkg.version, '*')
+  const wf = read('.github/workflows/desktop.yml')
+  assert.ok(
+    wf.includes(`desktop/release/${glob}`),
+    `the workflow never references desktop/release/${glob} (artifactName resolves to ${real}), ` +
+      'so upload-artifact finds nothing and fails with if-no-files-found: error'
+  )
+})
+
+check('a tag push publishes a GitHub Release', () => {
+  for (const wf of ['.github/workflows/desktop.yml', '.github/workflows/android.yml']) {
+    const src = read(wf)
+    assert.ok(/tags:\s*\[/.test(src), `${wf} does not run on tags, so Releases stay empty`)
+    assert.ok(
+      src.includes('softprops/action-gh-release'),
+      `${wf} never creates a release — the README's download links would 404`
+    )
+  }
+})
+
+check('Interfaces.kt does not treat the Wi-Fi client link (wlan0) as a hotspot', () => {
+  const src = read('mobile/app/src/main/java/com/netbridge/share/net/Interfaces.kt')
+  const hints = /WIFI_AP_HINTS = listOf\(([^)]*)\)/.exec(src)
+  assert.ok(hints, 'could not locate WIFI_AP_HINTS')
+  assert.ok(
+    !/["']wlan["']/.test(hints[1]),
+    'WIFI_AP_HINTS contains a bare "wlan" prefix, which matches wlan0 — the phone\'s own ' +
+      'Wi-Fi client interface — and reports a hotspot that does not exist'
+  )
+  assert.ok(
+    src.includes('WIFI_AP_WLAN'),
+    'there is no explicit wlan<N> (N > 0) rule for hotspot interfaces'
+  )
+})
+
+check('internetReachable comes from a validated WAN, not from "a VPN exists"', () => {
+  const nm = read('mobile/app/src/main/java/com/netbridge/share/net/NetworkMonitor.kt')
+  assert.ok(
+    nm.includes('internetReachable = report.hasValidatedWan'),
+    'NetworkMonitor no longer derives internetReachable from a validated WAN'
+  )
+  assert.ok(
+    !/if \(report\.vpnActive\) return true/.test(nm),
+    'NetworkMonitor still treats an active VPN as proof of internet, which hides the ' +
+      'tunnel-with-a-dead-underlay state that the no_internet warning exists for'
+  )
+})
+
+check('ShareManager clears `sharing` when the HTTP accept loop dies', () => {
+  const sm = read('mobile/app/src/main/java/com/netbridge/share/share/ShareManager.kt')
+  assert.ok(
+    sm.includes('is HttpProxyServer.Event.Stopped'),
+    'ShareManager ignores HttpProxyServer.Event.Stopped'
+  )
+  assert.ok(
+    /Event\.Stopped ->[\s\S]{0,700}?sharing = false/.test(sm),
+    'the Stopped branch does not set sharing = false, so /api/v1/start would answer ' +
+      '{"ok": true} for a dead port and startSharing() would be a no-op'
+  )
+})
+
+check('both proxies close in-flight tunnels when stopped', () => {
+  for (const f of [
+    'mobile/app/src/main/java/com/netbridge/share/share/HttpProxyServer.kt',
+    'mobile/app/src/main/java/com/netbridge/share/share/Socks5Server.kt'
+  ]) {
+    const src = read(f)
+    assert.ok(src.includes('closeLiveSockets()'), `${f} never closes live tunnel sockets`)
+    assert.ok(
+      /fun stop\(\)[\s\S]{0,500}?closeLiveSockets\(\)/.test(src),
+      `${f}: stop() does not call closeLiveSockets(), so "stop sharing" keeps forwarding`
+    )
+  }
+})
+
+check('the HTTP proxy understands chunked bodies and strips hop-by-hop headers', () => {
+  const src = read('mobile/app/src/main/java/com/netbridge/share/share/HttpProxyServer.kt')
+  assert.ok(
+    src.includes('readChunkedBody'),
+    'HttpProxyServer does not decode Transfer-Encoding: chunked, so such a request is ' +
+      'forwarded with an empty body and the upstream hangs or answers 400'
+  )
+  assert.ok(
+    src.includes('STRIPPED_HEADERS'),
+    'HttpProxyServer forwards hop-by-hop headers verbatim, producing a duplicate Connection header'
+  )
+})
+
+check('SOCKS5 only selects a method the client actually offered', () => {
+  const src = read('mobile/app/src/main/java/com/netbridge/share/share/Socks5Server.kt')
+  assert.ok(
+    /methods\.contains\(0x00\.toByte\(\)\)/.test(src),
+    'Socks5Server does not inspect the offered method list (RFC 1928 §3)'
+  )
+  assert.ok(
+    src.includes('0xFF.toByte()'),
+    'Socks5Server never answers 0xFF when no offered method is acceptable'
+  )
+})
+
+check('SOCKS5 start() binds synchronously and reports success', () => {
+  const src = read('mobile/app/src/main/java/com/netbridge/share/share/Socks5Server.kt')
+  assert.ok(
+    src.includes('fun start(): Boolean'),
+    'Socks5Server.start must return whether the port is listening'
+  )
+  assert.ok(
+    !/sc\.launch\s*\{\s*try\s*\{\s*val ss = ServerSocket\(\)/.test(src),
+    'Socks5Server still binds inside a coroutine, so start() cannot report a failure'
+  )
+})
+
+check('NsdAdvertiser is a process-wide singleton', () => {
+  const src = read('mobile/app/src/main/java/com/netbridge/share/net/NsdAdvertiser.kt')
+  assert.ok(
+    src.includes('private constructor'),
+    'NsdAdvertiser can still be constructed per Activity — rotation re-registers a live service'
+  )
+  assert.ok(
+    /companion object[\s\S]*?fun get\(/.test(src),
+    'NsdAdvertiser has no shared get(), so MainActivity still builds a new one'
+  )
+})
+
+check('ShareService cancels its previous state collector', () => {
+  const src = read('mobile/app/src/main/java/com/netbridge/share/share/ShareService.kt')
+  assert.ok(
+    /stateJob\?\.cancel\(\)/.test(src),
+    'ShareService launches a new collector on every onStartCommand without cancelling the old one'
+  )
+})
+
+check('ShareManager.init is idempotent', () => {
+  const src = read('mobile/app/src/main/java/com/netbridge/share/share/ShareManager.kt')
+  assert.ok(
+    /if \(initialized\) return/.test(src),
+    'init() runs twice (Application + BootReceiver) and resets live sharing state'
+  )
+})
+
+check('the desktop stores the pairing token encrypted at rest', () => {
+  const src = read('desktop/src/main/store.ts')
+  assert.ok(src.includes('safeStorage'), 'store.ts does not use Electron safeStorage')
+  assert.ok(src.includes('tokenEnc'), 'store.ts has no encrypted token field')
+})
+
+check('the Android app opts out of auto-backup', () => {
+  const src = read('mobile/app/src/main/AndroidManifest.xml')
+  assert.ok(
+    /allowBackup="false"/.test(src),
+    'allowBackup is not false — the API token and pairing code would land in cloud backups'
+  )
+})
+
+check('the System Proxy toggle reflects the persisted setting', () => {
+  const app = read('desktop/src/renderer/src/App.tsx')
+  assert.ok(
+    app.includes('systemProxySetting'),
+    'App.tsx drives the toggle from the runtime flag, so it shows "off" while the setting is on'
+  )
+  assert.ok(
+    !app.includes('setSystemProxy(!state.systemProxyOn)'),
+    'the toggle still writes the inverse of the runtime flag, which cannot turn the setting off'
+  )
+})
+
 console.log(`\n${pass} passed, ${fail} failed\n`)
 process.exit(fail === 0 ? 0 : 1)

@@ -1,8 +1,5 @@
 package com.netbridge.share.share
 
-import android.content.Context
-import android.net.Network
-import com.netbridge.share.net.Interfaces
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.InetAddress
@@ -19,19 +16,25 @@ import kotlinx.coroutines.launch
 /**
  * SOCKS5 proxy shared over the LAN.
  *
- * Same routing policy as [HttpProxyServer]: DNS resolution happens on the phone and
- * the outbound socket is bound to the tunnel-carrying network when one is known.
+ * Same routing policy as [HttpProxyServer]: DNS resolution happens on the phone and the
+ * outbound socket is a plain [Socket], so Android routes it through the active default
+ * network — the phone's VPN tunnel whenever one is up.
+ *
+ * Like [HttpProxyServer], [start] binds synchronously and reports whether the port is
+ * actually listening, so the caller never believes SOCKS is up when it is not.
  */
 class Socks5Server(
     private val port: Int,
-    private val onEvent: (Event) -> Unit,
-    private val appContext: Context? = null
+    private val onEvent: (Event) -> Unit
 ) {
     sealed class Event {
         data class Opened(val id: Long, val peer: String) : Event()
         data class Closed(val id: Long, val peer: String) : Event()
         data class Traffic(val peer: String, val up: Long, val down: Long) : Event()
         data class Error(val message: String) : Event()
+
+        /** The accept loop died on its own — nothing is listening any more. */
+        data class Stopped(val reason: String) : Event()
     }
 
     private val running = AtomicBoolean(false)
@@ -40,55 +43,81 @@ class Socks5Server(
     private var dispatcher: ExecutorCoroutineDispatcher? = null
     private var idSeq = 0L
 
-    @Volatile
-    private var cachedRoute: Network? = null
-    @Volatile
-    private var routeResolvedAt = 0L
+    /** Sockets of live tunnels; closed by [stop] so "stop sharing" really stops traffic. */
+    private val liveLock = Any()
+    private val live = mutableSetOf<Socket>()
 
-    fun start() {
-        if (!running.compareAndSet(false, true)) return
-        // Its own pool — see ServerThreads. Sharing Dispatchers.IO with the proxy
-        // tunnels is what let a busy session stall every accept loop in the app.
-        val disp = ServerThreads.pool("socks")
-        dispatcher = disp
-        val sc = CoroutineScope(SupervisorJob() + disp)
-        scope = sc
-        sc.launch {
-            var ss: ServerSocket? = null
+    private fun track(socket: Socket) {
+        synchronized(liveLock) { live.add(socket) }
+    }
+
+    private fun untrack(socket: Socket) {
+        synchronized(liveLock) { live.remove(socket) }
+    }
+
+    /** Closes every socket of a live tunnel. Safe to call more than once. */
+    private fun closeLiveSockets() {
+        val open = synchronized(liveLock) {
+            val snapshot = live.toList()
+            live.clear()
+            snapshot
+        }
+        for (s in open) {
             try {
-                val socket = ServerSocket()
-                socket.reuseAddress = true
-                socket.bind(InetSocketAddress("0.0.0.0", port), 128)
-                ss = socket
-                serverSocket = socket
+                s.close()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    /** Returns true only when the SOCKS port is accepting connections. */
+    fun start(): Boolean {
+        if (!running.compareAndSet(false, true)) return serverSocket?.isBound == true
+        return try {
+            val ss = ServerSocket()
+            ss.reuseAddress = true
+            ss.bind(InetSocketAddress("0.0.0.0", port), 128)
+            serverSocket = ss
+            // Its own pool — see ServerThreads. Sharing Dispatchers.IO with the proxy
+            // tunnels is what let a busy session stall every accept loop in the app.
+            val disp = ServerThreads.pool("socks")
+            dispatcher = disp
+            val sc = CoroutineScope(SupervisorJob() + disp)
+            scope = sc
+            sc.launch {
                 while (running.get()) {
                     val client = try {
-                        socket.accept()
+                        ss.accept()
                     } catch (_: Exception) {
                         break
                     }
                     val id = synchronized(this) { ++idSeq }
                     launch { handle(client, id) }
                 }
-            } catch (e: Exception) {
-                if (running.get()) {
-                    onEvent(Event.Error("SOCKS5: ${e.message ?: "error"}"))
-                }
-            } finally {
-                // stop() clears `running` first. A set here means the loop died while
-                // we still believed we were listening: close the socket so callers get
-                // a refusal instead of a silent backlog of dropped SYNs.
+                // stop() clears `running` first. A set here means the loop died while we
+                // still believed we were listening: close the socket so callers get a
+                // refusal instead of a silent backlog of dropped SYNs.
                 if (running.getAndSet(false)) {
                     try {
-                        ss?.close()
+                        ss.close()
                     } catch (_: Exception) {
                     }
                     serverSocket = null
-                    if (ss != null) {
-                        onEvent(Event.Error("SOCKS5: accept loop stopped :$port"))
-                    }
+                    // `running` is already false, so a later stop() would return
+                    // immediately and leak the tunnels and this private thread pool.
+                    closeLiveSockets()
+                    scope = null
+                    dispatcher?.close()
+                    dispatcher = null
+                    onEvent(Event.Stopped("SOCKS5: accept loop stopped :$port"))
                 }
             }
+            true
+        } catch (e: Exception) {
+            running.set(false)
+            serverSocket = null
+            onEvent(Event.Error("SOCKS5: ${e.message ?: "bind failed on :$port"}"))
+            false
         }
     }
 
@@ -99,30 +128,19 @@ class Socks5Server(
         } catch (_: Exception) {
         }
         serverSocket = null
-        scope?.cancel()
+        closeLiveSockets()
+        val sc = scope
+        val disp = dispatcher
         scope = null
-        dispatcher?.close()
         dispatcher = null
-    }
-
-    fun invalidateRoute() {
-        cachedRoute = null
-        routeResolvedAt = 0L
-    }
-
-    private fun route(): Network? {
-        val ctx = appContext ?: return null
-        val now = System.currentTimeMillis()
-        if (now - routeResolvedAt > 3000) {
-            cachedRoute = Interfaces.preferredRoute(ctx)
-            routeResolvedAt = now
-        }
-        return cachedRoute
+        sc?.cancel()
+        disp?.close()
     }
 
     private suspend fun handle(client: Socket, id: Long) {
         val peer = client.inetAddress?.hostAddress ?: "unknown"
         onEvent(Event.Opened(id, peer))
+        track(client)
         var upstream: Socket? = null
         try {
             client.use { c ->
@@ -135,7 +153,14 @@ class Socks5Server(
                 if (ver != 5) return
                 val nMethods = input.read()
                 if (nMethods <= 0) return
-                HttpProxyServer.readFully(input, nMethods)
+                val methods = HttpProxyServer.readFully(input, nMethods)
+                // RFC 1928: the server may only pick a method the client offered. We
+                // support "no authentication" (0x00) and nothing else.
+                if (!methods.contains(0x00.toByte())) {
+                    output.write(byteArrayOf(0x05, 0xFF.toByte()))
+                    output.flush()
+                    return
+                }
                 output.write(byteArrayOf(0x05, 0x00))
                 output.flush()
 
@@ -183,6 +208,7 @@ class Socks5Server(
                     return
                 }
                 upstream = up
+                track(up)
                 output.write(byteArrayOf(0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0))
                 output.flush()
 
@@ -195,6 +221,8 @@ class Socks5Server(
                 upstream?.close()
             } catch (_: Exception) {
             }
+            untrack(client)
+            upstream?.let { untrack(it) }
             onEvent(Event.Closed(id, peer))
         }
     }
@@ -235,6 +263,10 @@ class Socks5Server(
         }
     }
 
+    /**
+     * See [HttpProxyServer.connectUpstream]: no explicit [android.net.Network] binding, so
+     * the socket follows Android's default route and therefore the phone's VPN.
+     */
     private fun connectUpstream(host: String, port: Int): Socket? {
         return try {
             val addresses = InetAddress.getAllByName(host)
@@ -252,19 +284,6 @@ class Socks5Server(
             null
         } catch (_: Exception) {
             null
-        }
-    }
-
-    private fun closeQuietly(vararg things: Any?) {
-        for (t in things) {
-            try {
-                when (t) {
-                    is Socket -> t.close()
-                    is InputStream -> t.close()
-                    is OutputStream -> t.close()
-                }
-            } catch (_: Exception) {
-            }
         }
     }
 }

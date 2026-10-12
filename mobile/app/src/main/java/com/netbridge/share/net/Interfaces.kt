@@ -16,27 +16,47 @@ import java.net.NetworkInterface
  */
 object Interfaces {
 
-    /** IPv4 addresses Android created for USB tethering — present iff tethering is on. */
-    private val USB_IFACE_HINTS = listOf("rndis", "usb", "ncm", "ecm")
+    /** Interface-name prefixes Android only creates when USB tethering is on. */
+    private val USB_TETHER_HINTS = listOf("rndis", "usb", "ncm", "ecm")
 
-    private val WIFI_TETHER_HINTS = listOf("ap", "swlan", "softap", "wlan1", "wlan")
+    /**
+     * Prefixes that only appear on a Wi-Fi hotspot (AP) interface.
+     *
+     * There is deliberately no bare `"wlan"` here. `wlan0` is the phone's own Wi-Fi
+     * *client* link: matching it made `shareAddresses()` hand the PC the phone's
+     * home-LAN address and made the UI report a hotspot that did not exist.
+     */
+    private val WIFI_AP_HINTS = listOf("ap", "swlan", "softap")
+
+    /** Hotspots that reuse the Wi-Fi driver expose `wlan1`, `wlan2`, … — never `wlan0`. */
+    private val WIFI_AP_WLAN = Regex("^wlan[1-9][0-9]*$")
 
     /** Modes that mean "this end is the one that dials out", not the one we plug the PC into. */
-    private val WAN_IFACE_HINTS = listOf("rmnet", "ccmni", "pdp", "wwan", "ppp", "radio", "ril", "cellular")
+    private val WAN_IFACE_HINTS =
+        listOf("rmnet", "ccmni", "pdp", "wwan", "ppp", "radio", "ril", "cellular")
 
-    private val TUN_HINTS = listOf("tun", "tap", "utun", "ppp", "wg", "wireguard", "vpn", "ipsec", "dummy", "sit")
+    private val TUN_HINTS =
+        listOf("tun", "tap", "utun", "ppp", "wg", "wireguard", "vpn", "ipsec", "dummy", "sit")
 
-    data class Iface(
-        val name: String,
-        val address: String,
-        val prefixLength: Int,
-        val flags: Int
-    )
+    data class Iface(val name: String, val address: String)
 
-    /** Interface flags we care about. IFF_POINTOPOINT == 0x10. */
-    private const val IFF_POINTOPOINT = 0x10
+    private fun baseName(name: String): String = name.substringBefore(':').lowercase()
 
-    fun isPointToPoint(flags: Int): Boolean = (flags and IFF_POINTOPOINT) != 0
+    /** True when [name] is a USB tethering interface created by Android. */
+    fun isUsbTetherInterface(name: String): Boolean {
+        val base = baseName(name)
+        return USB_TETHER_HINTS.any { base.startsWith(it) }
+    }
+
+    /**
+     * True when [name] is a Wi-Fi hotspot (AP) interface. Those are `ap0`, `swlan0`,
+     * `softap0`, or `wlan1`/`wlan2`… — never `wlan0`, which is the client link.
+     */
+    fun isWifiApInterface(name: String): Boolean {
+        val base = baseName(name)
+        if (WIFI_AP_HINTS.any { base.startsWith(it) }) return true
+        return WIFI_AP_WLAN.matches(base)
+    }
 
     fun listIpv4(): List<Iface> {
         val out = mutableListOf<Iface>()
@@ -49,14 +69,7 @@ object Interfaces {
                     if (addr !is Inet4Address || addr.isLoopbackAddress) continue
                     val ip = addr.hostAddress ?: continue
                     if (ip.startsWith("169.254.") || ip.startsWith("127.")) continue
-                    out.add(
-                        Iface(
-                            name = nif.name,
-                            address = ip,
-                            prefixLength = 24,
-                            flags = nif.index
-                        )
-                    )
+                    out.add(Iface(name = nif.name, address = ip))
                 }
             }
         } catch (_: Exception) {
@@ -80,26 +93,9 @@ object Interfaces {
         return out
     }
 
-    /**
-     * True when Android itself created a tethering interface. USB is detected purely
-     * by interface presence (rndis/ncm), which works across OEM ROMs. Wi-Fi hotspot is
-     * reported by ConnectivityManager, because only some ROMs expose an ap or swlan iface.
-     */
-    fun isTetherUp(context: Context): Boolean {
-        val present = names()
-        if (present.any { n -> USB_IFACE_HINTS.any { n.startsWith(it, ignoreCase = true) } }) return true
-        return try {
-            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            cm.isActiveNetworkMetered && cm.activeNetwork == null
-        } catch (_: Exception) {
-            false
-        }
-    }
+    fun isUsbTetherUp(): Boolean = names().any { isUsbTetherInterface(it) }
 
-    fun isUsbTetherUp(): Boolean {
-        val present = names()
-        return present.any { n -> USB_IFACE_HINTS.any { n.startsWith(it, ignoreCase = true) } }
-    }
+    fun isWifiApUp(): Boolean = names().any { isWifiApInterface(it) }
 
     /**
      * Addresses that a PC connected over tethering can actually reach. We prefer
@@ -110,42 +106,19 @@ object Interfaces {
         val ifaces = listIpv4()
         // Strictly exclude any VPN tunnels and cellular WAN uplinks
         val nonTunnel = ifaces
-            .filterNot { i -> isTunnel(i.name) }
+            .filterNot { isTunnel(it.name) }
             .filterNot { i -> WAN_IFACE_HINTS.any { i.name.startsWith(it, ignoreCase = true) } }
 
-        val preferred = nonTunnel.filter { i ->
-            val n = i.name.lowercase()
-            (WIFI_TETHER_HINTS + USB_IFACE_HINTS).any { n.startsWith(it) }
+        val preferred = nonTunnel.filter {
+            isUsbTetherInterface(it.name) || isWifiApInterface(it.name)
         }
         if (preferred.isNotEmpty()) return preferred.map { it.address }.distinct()
         return nonTunnel.map { it.address }.distinct()
     }
 
-    /** True when this interface is one Windows would consider the PC-facing link. */
-    fun isShareLink(name: String): Boolean {
-        val base = name.substringBefore(':').lowercase()
-        return (WIFI_TETHER_HINTS + USB_IFACE_HINTS).any { base.startsWith(it) }
-    }
-
     fun isTunnel(name: String): Boolean {
-        val base = name.substringBefore(':').lowercase()
+        val base = baseName(name)
         return TUN_HINTS.any { base.startsWith(it) }
-    }
-
-    /**
-     * The subnet a downstream client is on, derived from our own address on the
-     * share link. 192.168.42.129/24 -> 192.168.42.0/24.
-     */
-    fun clientSubnet(ourAddress: String): String {
-        val parts = ourAddress.split(".")
-        if (parts.size != 4) return ourAddress
-        return "${parts[0]}.${parts[1]}.${parts[2]}.0"
-    }
-
-    /** Given a client IP, guess the address the PC will use for us on that subnet. */
-    fun gatewayFor(clientAddress: String, candidates: List<String>): String? {
-        val subnet = clientSubnet(clientAddress)
-        return candidates.firstOrNull { it.startsWith(subnet.substringBeforeLast(".")) }
     }
 
     /**
@@ -154,16 +127,17 @@ object Interfaces {
      * This matters because Android marks only one network active: as soon as USB
      * tethering is switched on, the active network becomes the tether interface and a
      * VPN transport on the uplink stops showing up via `activeNetwork`.
+     *
+     * Each WAN carries its `NET_CAPABILITY_VALIDATED` flag so callers can tell "there is
+     * a network" apart from "the OS confirmed that network reaches the internet" — the
+     * distinction the tunnel-with-no-uplink warning depends on.
      */
     fun enumerate(context: Context): NetworkReport {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-            ?: return NetworkReport(false, emptyList(), emptyList(), false)
+            ?: return NetworkReport(vpnActive = false, wanNetworks = emptyList())
 
         var vpn: Network? = null
-        var vpnCaps: NetworkCapabilities? = null
-        var vpnIsUplink = false
-        val wans = mutableListOf<Network>()
-        val all = mutableListOf<Network>()
+        val wans = mutableListOf<WanNetwork>()
 
         try {
             for (network in cm.allNetworks) {
@@ -176,39 +150,24 @@ object Interfaces {
 
                 // Detect the VPN before the IPv4 filter: some tunnels only expose an
                 // IPv6 link address, and dropping them made the app claim "no VPN".
-                if (hasVpn && vpn == null) {
-                    vpn = network
-                    vpnCaps = caps
-                    vpnIsUplink = hasWan
-                }
+                if (hasVpn && vpn == null) vpn = network
 
-                val link = cm.getLinkProperties(network)
-                val ipv4 = ipv4Of(link)
-                if (ipv4 == null) continue
-                all.add(network)
-
-                if (hasWan) wans.add(network)
+                if (!hasWan) continue
+                if (ipv4Of(cm.getLinkProperties(network)) == null) continue
+                wans.add(
+                    WanNetwork(
+                        network = network,
+                        validated = caps.hasCapability(
+                            NetworkCapabilities.NET_CAPABILITY_VALIDATED
+                        )
+                    )
+                )
             }
         } catch (_: Exception) {
             // fall through with whatever we collected
         }
 
-        val validatedWan = wans.filter { n ->
-            try {
-                cm.getNetworkCapabilities(n)?.hasCapability(
-                    NetworkCapabilities.NET_CAPABILITY_VALIDATED
-                ) == true
-            } catch (_: Exception) {
-                false
-            }
-        }
-
-        return NetworkReport(
-            vpnActive = vpn != null,
-            vpnNetworks = listOfNotNull(vpn),
-            wanNetworks = if (validatedWan.isNotEmpty()) validatedWan else wans,
-            vpnIsUplink = vpnIsUplink
-        )
+        return NetworkReport(vpnActive = vpn != null, wanNetworks = wans)
     }
 
     private fun ipv4Of(link: LinkProperties?): String? {
@@ -222,36 +181,18 @@ object Interfaces {
         return null
     }
 
+    data class WanNetwork(val network: Network, val validated: Boolean)
+
     data class NetworkReport(
         val vpnActive: Boolean,
-        val vpnNetworks: List<Network>,
-        val wanNetworks: List<Network>,
-        val vpnIsUplink: Boolean
-    )
-
-    /**
-     * Does this device currently have a usable route to the internet on its own?
-     */
-    fun hasInternetUplink(context: Context): Boolean {
-        val report = enumerate(context)
-        if (report.vpnActive) return true
-        if (report.wanNetworks.isEmpty()) return false
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-        return try {
-            report.wanNetworks.any { n ->
-                cm?.getNetworkCapabilities(n)?.hasCapability(
-                    NetworkCapabilities.NET_CAPABILITY_VALIDATED
-                ) == true
-            }
-        } catch (_: Exception) {
-            true
-        }
-    }
-
-    fun preferredRoute(context: Context): Network? {
-        // In Android, standard Sockets automatically route through the active default network,
-        // which is the VPN tunnel when VPN is active.
-        // Returning null ensures Sockets naturally traverse the active VPN tunnel without EPERM errors.
-        return null
+        val wanNetworks: List<WanNetwork>
+    ) {
+        /**
+         * The phone has an underlay that the OS itself confirmed can reach the internet.
+         *
+         * "A VPN network exists" is deliberately *not* treated as proof: a tunnel with a
+         * dead underlay is precisely the state the UI has to warn about.
+         */
+        val hasValidatedWan: Boolean get() = wanNetworks.any { it.validated }
     }
 }

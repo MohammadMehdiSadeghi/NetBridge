@@ -69,8 +69,11 @@ When you share your phone’s mobile connection via Wi-Fi Hotspot or USB Tetheri
 - Install and launch the app on your Android device (Android 8.0+).
 
 ### 2. Desktop App (Windows)
-- Download `NetBridge-Windows.exe` from the [Releases](https://github.com/MohammadMehdiSadeghi/NetBridge/releases).
-- Run the executable on Windows 10/11 (no installer required).
+- Download `NetBridge-Setup-<version>.exe` from the [Releases](https://github.com/MohammadMehdiSadeghi/NetBridge/releases).
+- Run the executable on Windows 10/11 — it is a self-contained portable build, no installer required.
+
+> Releases are published by CI when a tag like `v1.0.0` is pushed; until then the same
+> files are available as build artifacts on the workflow run page.
 
 ### 3. Establish Connection
 1. **Turn on your Phone's VPN** (e.g. v2rayNG, Clash, Psiphon).
@@ -174,7 +177,7 @@ cd NetBridge/mobile
   ```
 
 ### ۲. نرم‌افزار کامپیوتر (ویندوز)
-- فایل `NetBridge-Windows.exe` را دانلود کرده و روی ویندوز ۱۰ یا ۱۱ اجرا کنید (نیازی به نصب ندارد).
+- فایل `NetBridge-Setup-<version>.exe` را از بخش [Releases](https://github.com/MohammadMehdiSadeghi/NetBridge/releases) دانلود کرده و روی ویندوز ۱۰ یا ۱۱ اجرا کنید (فایل پرتابل و بدون نیاز به نصب است).
 
 ### ۳. مراحل اتصال
 1. **فیلترشکن گوشی را روشن کنید** (v2rayNG، Clash، MahsaNG و...).

@@ -3,6 +3,7 @@ name: Windows Desktop
 on:
   push:
     branches: [main, master]
+    tags: ['v*']
     paths:
       - 'desktop/**'
       - 'tools/**'
@@ -56,13 +57,22 @@ jobs:
           node tools/contract-test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Package NSIS installer
+      - name: Package portable exe
         run: npm run dist
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: NetBridge-Setup
-          path: desktop/release/NetBridge Setup *.exe
+          # Must match `portable.artifactName` in desktop/package.json, which is
+          # "${productName}-Setup-${version}.${ext}" — not "NetBridge Setup *.exe".
+          path: desktop/release/NetBridge-Setup-*.exe
           if-no-files-found: error
           retention-days: 14
+
+      - name: Attach installer to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: desktop/release/NetBridge-Setup-*.exe
+          generate_release_notes: true

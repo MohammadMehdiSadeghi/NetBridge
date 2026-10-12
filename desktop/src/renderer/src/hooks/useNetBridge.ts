@@ -32,6 +32,7 @@ export interface DesktopState {
   bytesIn: number
   bytesOut: number
   chainConnections: number
+  systemProxySetting: boolean
   systemProxyOn: boolean
   localPort: number
   scanning: boolean
@@ -65,6 +66,7 @@ const EMPTY: DesktopState = {
   bytesIn: 0,
   bytesOut: 0,
   chainConnections: 0,
+  systemProxySetting: true,
   systemProxyOn: false,
   localPort: 18080,
   scanning: false,

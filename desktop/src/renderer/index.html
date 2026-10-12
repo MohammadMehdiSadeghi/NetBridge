@@ -2,10 +2,11 @@
 <html lang="fa" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
-    />
+    <!-- Production policy, kept as a single line so the dev override below can match it
+         exactly. electron.vite.config.ts swaps it for a relaxed one while serving, because
+         Vite injects the React Fast Refresh preamble as an *inline* script and a strict
+         script-src without 'unsafe-inline' blocks it. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NetBridge</title>
   </head>

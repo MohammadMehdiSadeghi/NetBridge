@@ -1,4 +1,4 @@
-import { app } from 'electron'
+import { app, safeStorage } from 'electron'
 import { promises as fs } from 'fs'
 import path from 'path'
 
@@ -8,6 +8,15 @@ export interface Settings {
   localPort: number
   systemProxy: boolean
   pairingCode: string
+}
+
+/**
+ * On-disk shape. When the OS can protect the credential we store `tokenEnc`
+ * instead of `token`; a plaintext `token` is still read for backwards
+ * compatibility with settings files written by older builds.
+ */
+interface StoredSettings extends Partial<Settings> {
+  tokenEnc?: string
 }
 
 const DEFAULTS: Settings = {
@@ -27,12 +36,22 @@ export class Store {
   }
 
   async load(): Promise<Settings> {
+    let stored: StoredSettings = {}
     try {
       const raw = await fs.readFile(this.file, 'utf8')
-      this.data = { ...DEFAULTS, ...JSON.parse(raw) }
+      stored = JSON.parse(raw) as StoredSettings
     } catch {
-      this.data = { ...DEFAULTS }
+      stored = {}
     }
+
+    const { tokenEnc, ...rest } = stored
+    const merged: Settings = { ...DEFAULTS, ...rest }
+    // The pairing token is a bearer credential for the phone's control API. Never
+    // leave it in plain text on disk when the OS can hold the key for us.
+    if (!merged.token && tokenEnc) {
+      merged.token = this.decrypt(tokenEnc)
+    }
+    this.data = merged
     return this.data
   }
 
@@ -42,8 +61,40 @@ export class Store {
 
   async save(patch: Partial<Settings>): Promise<Settings> {
     this.data = { ...this.data, ...patch }
-    await fs.mkdir(path.dirname(this.file), { recursive: true })
-    await fs.writeFile(this.file, JSON.stringify(this.data, null, 2), 'utf8')
+    await this.write()
     return this.data
+  }
+
+  private async write(): Promise<void> {
+    const { token, ...rest } = this.data
+    const payload: StoredSettings = { ...rest }
+    if (token) {
+      const encrypted = this.encrypt(token)
+      if (encrypted) payload.tokenEnc = encrypted
+      else payload.token = token
+    }
+    await fs.mkdir(path.dirname(this.file), { recursive: true })
+    await fs.writeFile(this.file, JSON.stringify(payload, null, 2), 'utf8')
+  }
+
+  private encrypt(token: string): string | null {
+    try {
+      if (safeStorage.isEncryptionAvailable()) {
+        return safeStorage.encryptString(token).toString('base64')
+      }
+    } catch {
+      // Fall back to plain text rather than losing the pairing entirely.
+    }
+    return null
+  }
+
+  private decrypt(encoded: string): string {
+    try {
+      return safeStorage.decryptString(Buffer.from(encoded, 'base64'))
+    } catch {
+      // Key material changed (OS reinstall, different user profile). Treat the
+      // token as gone so the app asks for the 6-digit code again.
+      return ''
+    }
   }
 }

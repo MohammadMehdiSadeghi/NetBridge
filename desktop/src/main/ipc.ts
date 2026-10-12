@@ -39,6 +39,9 @@ export interface DesktopState {
   bytesIn: number
   bytesOut: number
   chainConnections: number
+  /** Persisted user preference: should the app manage the Windows System Proxy? */
+  systemProxySetting: boolean
+  /** Runtime state: is our proxy actually applied to Windows right now? */
   systemProxyOn: boolean
   localPort: number
   scanning: boolean
@@ -85,6 +88,7 @@ export class AppController {
       bytesIn: 0,
       bytesOut: 0,
       chainConnections: 0,
+      systemProxySetting: s.systemProxy,
       systemProxyOn: false,
       localPort: s.localPort,
       scanning: false,
@@ -530,6 +534,11 @@ export class AppController {
 
   async setSystemProxyEnabled(enabled: boolean): Promise<void> {
     await this.store.save({ systemProxy: enabled })
+    // The switch mirrors the *saved* preference, which must move even while the app
+    // is idle. `systemProxyOn` only says whether the proxy is applied right now, so
+    // using it as the switch's value left the toggle stuck off whenever the app was
+    // not connected — and clicking it then wrote the opposite of what was shown.
+    this.patch({ systemProxySetting: enabled })
     if (!enabled) {
       if (this.proxyApplied) {
         try {

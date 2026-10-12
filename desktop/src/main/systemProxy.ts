@@ -66,9 +66,15 @@ export async function applySystemProxy(server: string): Promise<void> {
 
 export async function clearSystemProxy(previous: ProxySnapshot): Promise<void> {
   const pac = (previous.autoConfigURL || '').replace(/'/g, "''")
+  const server = (previous.server || '').replace(/'/g, "''")
+  // The flag must be computed here, in JS. Emitting `$previous.enabled` into the
+  // script left PowerShell with an undefined variable, and `[int]([bool]$null)` is
+  // always 0 — so "restoring" the previous state silently force-disabled whatever
+  // proxy the user already had configured.
+  const enabledFlag = previous.enabled ? 1 : 0
   const script = `${PS_PRELUDE}
-    Set-ItemProperty -Path $path -Name ProxyEnable -Value $([int]([bool]$previous.enabled)) -Type DWord
-    $server = '${(previous.server || '').replace(/'/g, "''")}'
+    Set-ItemProperty -Path $path -Name ProxyEnable -Value ${enabledFlag} -Type DWord
+    $server = '${server}'
     if ($server -ne '') {
       Set-ItemProperty -Path $path -Name ProxyServer -Value $server -Type String
     } else {

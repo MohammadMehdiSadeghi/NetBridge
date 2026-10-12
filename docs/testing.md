@@ -18,7 +18,7 @@ Six stages run in sequence:
 | build | App bundle builds |
 | Compile ProxyChain | Real app class prepared for testing |
 | smoke test | **Real traffic path** without a phone |
-| contract test | Kotlin ↔ TypeScript contract (38 checks) |
+| contract test | Kotlin ↔ TypeScript contract, plus regression checks for bugs that already shipped once |
 
 ### What the smoke test actually does
 
@@ -194,6 +194,8 @@ Interpretation:
 To be honest:
 
 - **Kotlin code was never compiled here** — no JDK 17 or Android SDK on this machine. Only manual review. Build once in Android Studio before relying on it. Most likely syntax-error spots: `ShareManager.kt` and `Interfaces.kt`.
-- **Real VPN bind path** (`Network.socketFactory`) was not tested on real hardware. If your phone behaves oddly, `preferredRoute()` in `Interfaces.kt` is the first place to look. Priority must always be VPN; binding to physical WAN while VPN is up tunnels around the tunnel.
+- **VPN egress path** was not tested on real hardware. There is no explicit `Network` binding:
+  outbound sockets rely on Android's default routing, so the phone's active VPN carries them.
+  Verify with step 4 above that the exit IP really changed.
 - **Specific ROMs** that do not expose the tether interface as `NetworkInterface` are not covered (native `GetClients` resolver was deliberately not done).
 - **UDP traffic** (some games) is not supported — System Proxy only carries TCP.
