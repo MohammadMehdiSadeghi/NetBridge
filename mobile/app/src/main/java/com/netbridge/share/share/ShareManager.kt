@@ -292,8 +292,8 @@ object ShareManager {
             is HttpProxyServer.Event.Error -> _state.update { it.copy(error = ev.message) }
             is HttpProxyServer.Event.Stopped -> {
                 // The accept loop died on its own, so nothing is listening on the HTTP
-                // port any more. Leaving `sharing` true made /api/v1/start answer
-                // {"ok": true} for a dead port and turned startSharing() into a no-op.
+                // port any more. `sharing` has to follow, otherwise /api/v1/start would
+                // answer {"ok": true} for a dead port and startSharing() would be a no-op.
                 httpServer = null
                 socksServer?.stop()
                 socksServer = null

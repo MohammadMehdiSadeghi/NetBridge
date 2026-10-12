@@ -80,11 +80,9 @@ Outbound sockets are opened with a plain `Socket()` and are **not** explicitly b
 tunnel whenever a VPN is up — that is exactly what makes the shared link inherit the phone's
 VPN with no root.
 
-> An earlier revision of this document described binding each socket to a chosen `Network` via
-> `Network.socketFactory` (`Interfaces.preferredRoute()`). That was never wired up: the helper
-> returned `null` and no call site used it, so the code has been removed. If this is ever
-> revisited, remember that binding to the physical WAN while a VPN is up *bypasses* the tunnel —
-> the VPN must always win.
+> Do not "optimise" this by binding each socket to a chosen `Network`: binding to the physical
+> WAN while a VPN is up *bypasses* the tunnel, which defeats the entire product. The VPN must
+> always win.
 
 ### 2. Desktop app (`desktop/`)
 

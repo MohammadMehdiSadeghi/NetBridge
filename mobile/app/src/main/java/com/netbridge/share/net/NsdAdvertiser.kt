@@ -10,10 +10,10 @@ import com.netbridge.share.share.ShareManager
  * Advertises the control API over mDNS/NSD.
  *
  * A single instance is shared process-wide. `MainActivity` is recreated on every
- * configuration change (rotation), and creating a fresh advertiser each time meant
- * `register()` ran again for a service the previous instance had already registered —
- * the `registered` flag is per-instance, so it could not tell. Android then rejected the
- * duplicate registration and the phone silently stopped being discoverable.
+ * configuration change (rotation), so a per-Activity advertiser would call `register()`
+ * again for a service that is already live — the `registered` flag is per-instance and
+ * cannot see the previous one. Android rejects the duplicate registration, which leaves
+ * the phone undiscoverable.
  */
 class NsdAdvertiser private constructor(context: Context) : ShareManager.NsdHolder {
 

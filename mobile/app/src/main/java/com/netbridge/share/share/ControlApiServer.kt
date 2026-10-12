@@ -142,9 +142,9 @@ class ControlApiServer(
             // Best-effort 500 so a broken handler does not look like a dead phone
             // (the desktop would otherwise hang until its fetch timeout).
             //
-            // The socket must still be open here. The previous version wrapped the whole
-            // body in `socket.use { }`, which closed it while unwinding the exception, so
-            // this write always failed and the client saw a bare connection reset.
+            // The socket must still be open at this point: wrapping the whole body in
+            // `socket.use { }` would close it while unwinding, and this write would then
+            // fail on a closed stream, leaving the client with a bare connection reset.
             try {
                 val body = err("internal error").toString().toByteArray(Charsets.UTF_8)
                 val head = (

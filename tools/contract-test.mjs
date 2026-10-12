@@ -235,11 +235,11 @@ check('desktop clears the token on 401 so the user can re-pair', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Regressions found by the 2026-10 audit. Each one is a bug that shipped, so the
-// assertion is written against the *broken* shape, not just the fixed one.
+// Regression guards. Each assertion pins the exact shape the code must keep in order
+// to avoid a known failure mode, so a well-meaning refactor cannot quietly undo it.
 // ---------------------------------------------------------------------------
 
-/** Comments legitimately quote the broken code; assertions must look at code only. */
+/** Comments legitimately quote the broken shape; assertions must look at code only. */
 const stripComments = (src) =>
   src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 

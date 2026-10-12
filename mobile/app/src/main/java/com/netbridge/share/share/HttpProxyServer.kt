@@ -217,9 +217,10 @@ class HttpProxyServer(
                     }
 
                     // The body is read up-front and re-emitted with an explicit
-                    // Content-Length. The old code only understood Content-Length, so a
-                    // chunked upload was forwarded with its Transfer-Encoding header but
-                    // an empty body — the upstream then hung or answered 400.
+                    // Content-Length, so the upstream hop never has to deal with chunked
+                    // framing. Reading only Content-Length would forward a chunked request
+                    // with its Transfer-Encoding header and an empty body, which makes the
+                    // upstream hang or answer 400.
                     val chunked = headerLines.any {
                         it.first.equals("transfer-encoding", true) &&
                             it.second.contains("chunked", true)
